@@ -83,6 +83,8 @@ router.post('/uploadprofilephoto', function(req, res) {
     var absPath = path.join(__dirname, 'uploads/profile_pics/' + filename + extname);
     let hostUrl;
 
+    console.log(absPath);
+
     if (config.env == "local") {
         hostUrl = "http://localhost:1800";
     } else {
@@ -92,6 +94,9 @@ router.post('/uploadprofilephoto', function(req, res) {
 
 
     var serverFilePath = hostUrl + '/profile_pics/' + filename + extname;
+
+
+    console.log(serverFilePath);
     file.mv(absPath, function(err) {
 
       console.log(err);
