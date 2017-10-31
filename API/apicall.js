@@ -75,31 +75,20 @@ function sendSuccess(res, result, requestId) {
 router.post('/uploadprofilephoto', function(req, res) {
     if (!req.files)
         return res.status(400).send('No files were uploaded.');
-
-        console.log(req.files);
     let file = req.files.file;
     let filename = crypto.randomBytes(20).toString('hex');
     let extname = path.extname(file.name);
     var absPath = path.join(__dirname, 'uploads/profile_pics/' + filename + extname);
     let hostUrl;
 
-    console.log(absPath);
-
     if (config.env == "local") {
         hostUrl = "http://localhost:1800";
     } else {
-        hostUrl = "http://52.41.46.86:1800";
+        hostUrl = "https://platform.hurify.co:1800";
     }
 
-
-
     var serverFilePath = hostUrl + '/profile_pics/' + filename + extname;
-
-
-    console.log(serverFilePath);
     file.mv(absPath, function(err) {
-
-      console.log(err);
         if (err) {
             return res.status(500).send(err);
         }
@@ -111,6 +100,7 @@ router.post('/uploadprofilephoto', function(req, res) {
             sendError(res, err, requestId);
         });
     });
+
 });
 
 router.post('/getallprojects', function(req, res) {
