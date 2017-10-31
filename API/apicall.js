@@ -88,7 +88,7 @@ router.post('/uploadprofilephoto', function(req, res) {
     }
 
     var serverFilePath = hostUrl + '/profile_pics/' + filename + extname;
-    file.mv('uploads/sudhakar2222.png', function(err) {
+    file.mv(absPath, function(err) {
         if (err) {
             return res.status(500).send(err);
         }
