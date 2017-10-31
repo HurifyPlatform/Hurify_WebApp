@@ -75,6 +75,8 @@ function sendSuccess(res, result, requestId) {
 router.post('/uploadprofilephoto', function(req, res) {
     if (!req.files)
         return res.status(400).send('No files were uploaded.');
+
+        console.log(req.files);
     let file = req.files.file;
     let filename = crypto.randomBytes(20).toString('hex');
     let extname = path.extname(file.name);
