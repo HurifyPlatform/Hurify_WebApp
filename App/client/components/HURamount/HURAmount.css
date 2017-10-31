@@ -1,0 +1,118 @@
+.formContainer {
+  font-family: 'Source Sans Pro', sans-serif;
+  position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: rgba(0, 0, 0, 0.6); //60% opacity
+	z-index: 49238;
+	-webkit-transition: opacity 400ms ease-in;
+	-moz-transition: opacity 400ms ease-in;
+	transition: opacity 400ms ease-in;
+	pointer-events: auto;
+  opacity:1;
+}
+
+.formContainer form {
+  font-family: 'Source Sans Pro', sans-serif;
+  width: 35em;
+  height: 200px;
+	position: relative;
+	margin: 10% auto;
+  flex: 1;
+  padding: 2em 2em 2em 2em;
+	border-radius: 5px;
+  background-color: #2C3E50;
+}
+
+/* makes the inputs stack on top of each other in the login form only */
+.formContainer fieldset {
+  width: 100%;
+}
+
+.closeButton {
+	background: #000;
+	color: #FFFFFF;
+	line-height: 25px;
+	position: absolute;
+	right: -12px;
+	text-align: center;
+	top: -10px;
+	width: 24px;
+	text-decoration: none;
+	font-weight: bold;
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+	-moz-box-shadow: 1px 1px 3px #000;
+	-webkit-box-shadow: 1px 1px 3px #000;
+	box-shadow: 1px 1px 3px #000;
+}
+
+.closeButton:hover {
+  background: #333;
+}
+
+.close {
+  pointer-events: none;
+  -webkit-transition: opacity 400ms ease-in;
+	-moz-transition: opacity 400ms ease-in;
+	transition: opacity 400ms ease-in;
+  opacity: 0;
+}
+.formHeading {
+    color: #fff;
+    font-size: 2em;
+    text-align: center;
+    margin-top: 10px;
+}
+.labelField {
+  text-align: center;
+  background:#273746;
+  padding: 8px;
+  width:350px;
+  color:#ffffff;
+  font-size:1.2em;
+  background-color: transparent;
+}
+
+.yesbtn {
+  float:left;
+  background:#3498db;
+  width:125px;  padding-top:5px;
+  padding-bottom:5px;
+  color:white;
+  border-radius:4px;
+  border: #2980b9 1px solid;
+
+  margin-top:25px;
+  margin-bottom:20px;
+  margin-left:10px;
+  margin-right: 50px;
+  font-weight:900;
+  font-size:1em;
+  text-decoration: none;
+}
+.nobtn {
+  float:left;
+  background:#3498db;
+  width:125px;  padding-top:5px;
+  padding-bottom:5px;
+  color:white;
+  border-radius:4px;
+  border: #2980b9 1px solid;
+
+  margin-top:25px;
+  margin-bottom:20px;
+  margin-left:65px;
+  margin-right: 50px;
+  font-weight:900;
+  font-size:1em;
+  text-decoration: none;
+}
+
+.content {
+  text-align: center;
+}
+

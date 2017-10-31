@@ -1,0 +1,48 @@
+{
+  "name": "paasmer-api",
+  "version": "1.0.0",
+  "description": "Paasmer API",
+  "main": "CoreAPI.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sudhakar Reddy",
+  "license": "ISC",
+  "dependencies": {
+    "archiver": "^2.0.3",
+    "async": "^2.5.0",
+    "aws-iot-device-sdk": "^2.1.0",
+    "aws-sdk": "^2.130.0",
+    "bluebird": "^3.5.1",
+    "body-parser": "^1.18.2",
+    "cls-bluebird": "^2.0.1",
+    "continuation-local-storage": "^3.2.0",
+    "crypto": "^1.0.1",
+    "es6-promise": "^4.1.1",
+    "express": "^4.16.2",
+    "express-fileupload": "^0.3.0",
+    "express-winston": "^2.4.0",
+    "https": "^1.0.0",
+    "isomorphic-fetch": "^2.2.1",
+    "mc": "^1.0.6",
+    "memcached": "^2.2.2",
+    "mysql": "^2.15.0",
+    "mysql2": "^1.4.2",
+    "node-ses": "^2.0.5",
+    "nodemailer": "^4.1.3",
+    "nodemailer-ses-transport": "^1.5.1",
+    "path": "^0.12.7",
+    "public-ip": "^2.3.5",
+    "recaptcha2": "^1.3.2",
+    "sequelize": "^4.13.8",
+    "util": "^0.10.3",
+    "uuid": "^3.1.0",
+    "web3": "^1.0.0-beta.24",
+    "winston": "^2.4.0",
+    "winston-daily-rotate-file": "^1.7.2"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "paasmer"
+  ]
+}

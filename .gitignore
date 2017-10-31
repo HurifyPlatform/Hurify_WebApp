@@ -1,0 +1,12 @@
+node_modules/
+dist/index_bundle.*
+.DS_Store
+API/config/index.js
+App/config/index.js
+API/node_modules/*
+API/uploads/*
+App/node_modules/*
+API/node_modules/*
+App/node_modules/*
+App/dist/index_bundle.*
+App/.DS_Store

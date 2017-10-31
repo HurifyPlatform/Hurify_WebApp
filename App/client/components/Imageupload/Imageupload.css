@@ -1,0 +1,65 @@
+.previewComponent
+{
+  text-align: center !important;
+  min-width: 150px;
+  margin:0 auto;
+}
+
+.fileInput {
+  padding: 10px;
+  margin: 15px auto;
+  cursor: pointer;
+  background-color: transparent;
+  color:#000;
+  border:none;
+  font-size: 1.0em;
+  text-align: center;
+  width:100px;
+}
+.imgPreview {
+  text-align: center;
+  margin: 5px 15px;
+  height: 100px;
+  width: 100px;
+  border-radius: 50%;
+  margin:0 auto;
+}
+.imgPreview img {
+  width: 120px;
+  height: 120px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  margin:-2px auto;
+  text-align: center;
+}
+.previewText {
+  width: 100%;
+  margin-top: 25px;
+  font-size: 1.0em;
+}
+.submitButton {
+  padding: 8px;
+  margin-left: 20px;
+  background: #337ab7;
+  border: 2px solid #fff;
+  border-radius: 5px;
+  font-weight: 400;
+  font-size: 12px;
+  cursor: pointer;
+  color:#fff;
+  width: 100px;
+    margin: 55px auto;
+  background-color: transparent;
+}
+.submitButton:hover {
+  background: #337ab7;
+}
+.centerText {
+  text-align: center;
+  width: 100px;
+}
+
+
+input[type="checkbox"] {
+
+}

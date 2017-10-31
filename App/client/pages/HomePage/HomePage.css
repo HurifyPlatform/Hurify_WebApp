@@ -1,0 +1,11 @@
+.main {
+    background-color: #EDF1FF;
+    flex: 1;
+    overflow-y: scroll;
+}
+
+.nav {
+    display: block;
+    font-size: 3em;
+    text-align: center;
+}

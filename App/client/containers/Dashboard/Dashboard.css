@@ -1,0 +1,11 @@
+.main {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    background-color: #eaf0f5;
+}
+
+.content {
+    flex: 1;
+    overflow-y: scroll;
+}
