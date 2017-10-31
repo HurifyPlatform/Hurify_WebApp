@@ -87,8 +87,12 @@ router.post('/uploadprofilephoto', function(req, res) {
         hostUrl = "http://52.41.46.86:1800";
     }
 
+
+
     var serverFilePath = hostUrl + '/profile_pics/' + filename + extname;
     file.mv(absPath, function(err) {
+
+      console.log(err);
         if (err) {
             return res.status(500).send(err);
         }
