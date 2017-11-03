@@ -63,7 +63,7 @@ module.exports = {
 	plugins: [
 		HtmlWebpackPluginConfig,
 		new webpack.HotModuleReplacementPlugin(),
-		new FaviconsWebpackPlugin('./client/img/favicon.png')
+		new FaviconsWebpackPlugin('./client/img/Hur.png')
 	],
 	resolve: {
 		extensions: ['.js', '.jsx','.css', '.png', '.jpg']
