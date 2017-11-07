@@ -110,7 +110,7 @@ class RegisteredPage extends React.Component{
   			<div className="container-fluid" style={{paddingTop:'8%', margin:'0px 30px'}} id="startchange">
   				<div className="row">
   					<div className="col-sm-8">
-              <h4 className={styles.content}>Hurify Inc. is founded by Ex-Intel veterans. Hurify is an Ethereum based decentralized platform that facilitates IoT Developers to monetize their IoT hardware resources and services via Smart Contracts. Hurify is powered by Ethereum ERC20 standard HUR Tokens. This is Hurify Beta, MVP of the platform that can be used for testing and available for product demo on the Ethereum test network.</h4>
+              <h4 className={styles.content}>Hurify Inc. founded by Ex-Intel veterans, is an Ethereum based decentralized platform that facilitates IoT Developers to monetize their IoT hardware resources and services via Smart Contracts. Hurify is powered by Ethereum ERC20 standard HUR Tokens. This is Hurify Beta, MVP of the platform that can be used for testing and available for product demo on the Ethereum test network.</h4>
               <div className="row">
               <div className="col-sm-2"></div>
               <div className="col-sm-8"style={{margin:'20px'}}><iframe className="embed-responsive-item" style={{width:'460px', height:'260px', border:'none', display:'block'}} src="https://www.youtube-nocookie.com/embed/9606CJmMYHA" frameBorder="0" allowFullScreen></iframe></div>
