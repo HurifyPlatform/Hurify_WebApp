@@ -144,7 +144,7 @@ autoplay: 0
   			<div className="container-fluid" style={{paddingTop:'8%', margin:'0px 30px'}} id="startchange">
   				<div className="row">
   					<div className="col-sm-8">
-              <h4 className={styles.content}>Hurify Inc. Head-Quartered in Halifax, Canada, is founded by Ex-Intel veterans. Hurify is an Ethereum based decentralized platform that facilitates IoT Developers to monetize their IoT hardware resources and services via Smart Contracts. Hurify is powered by Ethereum ERC20 standard HUR Tokens. This is Hurify Beta, MVP of the platform that can be used for testing and available for product demo on the Ethereum test network.</h4>
+              <h4 className={styles.content}>Hurify Inc. is founded by Ex-Intel veterans. Hurify is an Ethereum based decentralized platform that facilitates IoT Developers to monetize their IoT hardware resources and services via Smart Contracts. Hurify is powered by Ethereum ERC20 standard HUR Tokens. This is Hurify Beta, MVP of the platform that can be used for testing and available for product demo on the Ethereum test network.</h4>
               <div className="row">
               <div className="col-sm-2"></div>
               <div className="col-sm-8"style={{margin:'20px'}}>
