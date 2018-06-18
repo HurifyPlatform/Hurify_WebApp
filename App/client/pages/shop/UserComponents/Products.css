@@ -1,0 +1,342 @@
+.shopLandpage
+{
+		display: flex;
+		flex-direction: column;
+    flex-wrap: wrap;
+		width:85%;
+		margin:0px auto;
+}
+
+.productCategoriesListDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+
+}
+.productCategoriesListDiv > div {
+	background-color: #ffffff;
+	width:200px;
+	margin:3px;
+}
+.CategoriesDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+		cursor:pointer;
+}
+.CategoriesDiv > div
+{
+	margin:3px;
+}
+.CategorieNameDiv {
+		display: flex;
+		flex-direction: column;
+    flex-wrap: wrap;
+}
+.CategorieName
+{
+		font-size: 12px;
+		font-weight: 600;
+  	text-transform: capitalize;
+		overflow: hidden;
+   	text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 12px;     /* fallback */
+    /*height: 28px;      /* fallback */
+   -webkit-line-clamp: 4; /* number of lines to show */
+   -webkit-box-orient: vertical;
+	  width:140px;
+}
+.CategoriesIcon > img {
+	width:30px;
+	margin:2px;
+}
+
+.FeaturedCategorieDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+		justify-content: space-between;
+}
+
+.FeaturedCategorieDiv > div
+{
+	width:230px;
+	height:540px;
+	margin:10px;
+	padding: 5px;
+
+}
+.FeaturedCategoriesProductDiv {
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+}
+.FeatureProductsCategName {
+  text-transform: capitalize;
+	cursor:pointer;
+}
+.FeaturedCategoriesProductInnerDiv
+{
+	   display: flex;
+	  flex-direction: column;
+    flex-wrap: wrap;
+    padding: 5px;
+    border: 1px solid #ccc;
+}
+.FeaturedProductImageDiv {
+	text-align: center;
+	padding: 5px;
+}
+
+.FeaturedProductImageDiv img
+{
+	height:160px;
+	width:160px;
+  cursor:pointer;
+}
+.FeatureProductNameDiv {
+  text-align: left;
+}
+.productName {
+  text-transform: capitalize;
+  font-size: 16px;
+  font-weight: 600;
+	overflow: hidden;
+   	text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 20px;     /* fallback */
+    height: 20px;      /* fallback */
+   -webkit-line-clamp: 4; /* number of lines to show */
+   -webkit-box-orient: vertical;
+
+}
+.FeatureProductName span {
+  font-size: 1.6em;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.FeaturedProductDescDiv
+{
+	padding: 4px;
+	width:200px;
+}
+.FeaturedProductContent
+{
+		font-size: 14px;
+		overflow: hidden;
+   	text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 16px;     /* fallback */
+    height: 64px;      /* fallback */
+   -webkit-line-clamp: 4; /* number of lines to show */
+   -webkit-box-orient: vertical;
+	 	word-wrap: break-word;
+}
+.FeaturedProductPrice
+{
+
+}
+.FeaturedProductPrice span
+{
+	font-size: 1.6em;
+	font-weight: 700;
+	color:#000;
+}
+.FeaturedProductManufacturer {
+	/*padding-top: 10px;*/
+}
+.FeaturedProductManufacturer .manufacturer{
+	font-size: 14px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	line-height: 16px;     /* fallback */
+	height: 64px;      /* fallback */
+ -webkit-line-clamp: 4; /* number of lines to show */
+ -webkit-box-orient: vertical;
+	word-wrap: break-word;
+}
+.FeaturedProductManufacturerCont p {
+	font-size: 14px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	line-height: 16px;     /* fallback */
+	height: 34px;      /* fallback */
+ -webkit-line-clamp: 4; /* number of lines to show */
+ -webkit-box-orient: vertical;
+	word-wrap: break-word;
+	font-weight: 600;
+	margin-top: 10px;
+}
+.manufacturer1 {
+	font-size: 20px;
+	font-weight: 600;
+	margin-left: 5px;
+
+
+}
+.FeaturedAddCartButtonDiv {
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+	text-align: center;
+}
+.FeaturedAddCartButtonDiv1 button {
+	width:200px;
+	background-color: #528EC1;
+	border-color: #528EC1;
+	font-size: 18px;
+	color:#fff;
+}
+
+.FeaturedCountProdctDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-bottom: 10px;
+    padding-top:10px;
+}
+
+.FeaturedCountProdctDiv > div {
+	padding-left: 5px;
+}
+.AddProductCount span {
+
+	font-weight: 600;
+}
+
+.FeaturedCategorieNavigationDiv {
+		display: flex;
+		flex-direction: row;
+   	flex-wrap: wrap;
+   	justify-content: space-between;
+		height: 60px;
+		align-items: baseline;
+}
+.pagination {
+   display: inline-block;
+}
+
+.pagination a {
+   color: black;
+   float: left;
+   padding: 3px 6px;
+   text-decoration: none;
+   transition: background-color .3s;
+   border: 1px solid #ddd;
+   font-size: 16px;
+}
+.pagination a.active {
+   background-color: #4CAF50;
+   color: white;
+   border: 1px solid #4CAF50;
+}
+
+.subCategoryDiv {
+background-color: #ccc;
+width:100%;
+min-height: 200px;
+border-radius: 10px;
+z-index: 2px;
+animation: showNav 250ms ease-in-out both;
+}
+.subCategoryDiv::after {
+   content: " ";
+   position: absolute;
+   bottom: 100%;  /* At the top of the tooltip */
+
+   margin-left: -5px;
+   border-width: 10px;
+   border-style: solid;
+   border-color: transparent transparent #ccc transparent;
+}
+
+@keyframes showNav {
+ from {opacity: 0;}
+ to {opacity: 1;}
+}
+
+.tooltip {
+   position: relative;
+   width:100%;
+}
+
+.subCategoryInnerDiv {
+	display: flex;
+	flex-direction: row;
+   flex-wrap: wrap;
+   justify-content: space-between;
+  align-items: center;
+}
+
+.subCategoryCloseDiv {
+	text-align: right;
+	margin:5px;
+	padding:5px;
+}
+
+.subCategoryNameDiv {
+	margin:0px 5px;
+	padding:0px 5px;
+}
+.subCategoryNameDiv h3 {
+	margin: 0px 5px;
+	padding: 0px 5px;
+	font-size: 1.6em;
+	font-weight: 600;
+	color:#000;
+	text-transform: capitalize;
+}
+
+.subCategoryListDiv
+{
+display: flex;
+flex-direction: row;
+   flex-wrap: wrap;
+   justify-content: flex-start;
+  align-items: baseline;
+  margin:5px 15px;
+  padding:5px 15px;
+  align-items: left;
+}
+.subCategoryListInnerDiv
+{
+	display: flex;
+	flex-direction: column;
+   flex-wrap: wrap;
+   margin: 2px;
+   padding: 2px;
+   margin:2px 20px 2px 2px;
+  padding:2px 20px 2px 2px;
+	width:230px;
+}
+.subCategoryListInnerDiv span {
+	margin: 0px;
+	padding: 0px;
+	font-size:16px;
+	color:#333;
+	text-transform: capitalize;
+	cursor: pointer;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	line-height: 18px;     /* fallback */
+	height: 20px;      /* fallback */
+ -webkit-line-clamp: 4; /* number of lines to show */
+ -webkit-box-orient: vertical;
+	word-wrap: break-word;
+}
+
+.subCategoryListInnerDiv span:hover {
+	color:#0268a6;
+}

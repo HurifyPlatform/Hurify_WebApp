@@ -23,7 +23,7 @@ module.exports = {
         },
         categories : {
             type     : Sequelize.STRING,
-            allowNull: false
+            allowNull: true 
         },
         languages : {
             type     : Sequelize.STRING,
@@ -35,16 +35,27 @@ module.exports = {
         },
         skills : {
             type     : Sequelize.STRING,
-            allowNull: false
+            allowNull: true 
         },
         country : {
             type     : Sequelize.STRING,
             allowNull: false
         },
-        profileUpdateStatus : {
-            type     : Sequelize.BOOLEAN,
-            allowNull: false,
-            defaultValue: 0
+        attachmentPath : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        city : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        currentTimeZone: {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        education: {
+            type     : Sequelize.STRING,
+            allowNull: true
         }
     },
     options : {

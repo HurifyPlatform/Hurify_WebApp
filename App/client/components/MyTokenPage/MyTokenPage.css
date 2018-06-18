@@ -1,0 +1,26 @@
+.borderedBox {
+	border: 2px solid #528EC1;
+	width: 100%;
+	border-radius: 20px;
+	background-color: rgba(82,142,193,0.5);
+	height: 215px;
+	padding-bottom: 5px;
+}
+.icon {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	background: #fff;
+	margin: 5px auto;
+}
+.box {
+	width:270px;
+	margin-right: 20px;
+}
+.flex_container2 {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+	justify-content: center;
+	margin-left: 20px;
+}

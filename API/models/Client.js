@@ -24,11 +24,6 @@ module.exports = {
         country : {
             type     : Sequelize.STRING,
             allowNull: false
-        },
-        profileUpdateStatus : {
-            type     : Sequelize.BOOLEAN,
-            allowNull: false,
-            defaultValue: 0
         }
     },
     options : {

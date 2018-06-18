@@ -5,15 +5,19 @@ import $ from "jquery";
 import AuthLayer from './../../network/AuthLayer'
 import UserStore from './../../stores/UserStore'
 import PropTypes from 'prop-types'
+import axios from 'axios'
+import Cookies from 'universal-cookie';
+var crypt = require('./../../../config/crypt')
 
 
-
+const cookies = new Cookies();
 class ClientEditProfile extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
             params: {
                 token: '',
+                  file: null,
                 user: {
                     token: '',
                     userId: '',
@@ -29,14 +33,12 @@ class ClientEditProfile extends React.Component {
 
     componentWillMount() {
         const user = this.state.params.user
-        user['userId'] = localStorage.getItem('UserID')
-        user['token'] = localStorage.getItem('token')
-        user['email'] = localStorage.getItem('email')
+        user['userId'] = crypt.decrypt(cookies.get('UserID'))
+        user['token'] = crypt.decrypt(cookies.get('token'))
+        user['email'] = crypt.decrypt(cookies.get('email'))
         this.setState({
             user
         })
-        console.log(this.state.params.user);
-
         AuthLayer.getProfileDetails(this.state.params.user).then(response => {
             if (response.data.success) {
                 const user = this.state.params.user
@@ -54,55 +56,49 @@ class ClientEditProfile extends React.Component {
     }
 
     updatingProfile(event) {
-        if ((!this.state.params.user.name.length) || (!this.state.params.user.languages.length) || (!this.state.params.user.userDesc.length)) {
-            alert('All details are mandatory, Please enter every detail')
-
-        } else {
             event.preventDefault();
             const user = this.state.params.user
-            user['userId'] = localStorage.getItem('UserID')
+            user['userId'] = crypt.decrypt(cookies.get('UserID'))
             this.setState({
                 user
             })
-            const params = this.state.params
-            params['token'] = localStorage.getItem('token')
-            this.setState({
-                params
-            })
-            AuthLayer.editProfile(this.state.params).then(response => {
-                if (response.data.success) {
-                    alert("Profile updated successfully!")
-                    this.setState({
-                        status: response.status,
-                        message: response.data.message,
-                        errors: response.data.errors,
 
-                    })
-                    UserStore.setName(this.state.params.user.name)
-                    localStorage.setItem('name', this.state.params.user.name)
-                    this.context.router.push('/dashboard/clientviewprofile')
-                } else {
-                    alert(JSON.stringify(response.data.error))
-                }
-            })
-        }
+            const request = new FormData();
+            var ProjectData = JSON.stringify(this.state.params.user);
+            request.append('file', this.state.params.file);
+            request.append('token', crypt.decrypt(cookies.get('token')));
+            request.append('user', ProjectData);
+            axios.post(require('./../../../config').serverAPI + '/apicall/edituserprofile', request).then(result => {
+              if(result.data.success) {
+                alert("Profile updated successfully!")
+                cookies.set('name', crypt.encrypt(this.state.params.user.name), { path: '/' });
+                // this.context.router.push('/dashboard/clientviewprofile')
+                window.location = "/dashboard/clientviewprofile"
+              }
+              else {
+                alert("Failed to Update Profile, Please Try Again")
+              }
+            });
+
     }
 
     changeUser(event) {
-        console.log(event.target.name);
         const field = event.target.name
         const user = this.state.user
         user[field] = event.target.value
         this.setState({
             user
         })
-        console.log(this.state.user);
     }
 
 render() {
 	return(
-		<div className="row" style={{padding:'100px 50px 50px 50px', backgroundColor:'#e2e2e2', flex:'1', minHeight:'91vh'}}>
-			<div className={styles.well}>
+		<div className="row" style={{padding:'2px 0px 0px 20px', backgroundColor:'#d7e1eb', flex:'1', minHeight:'91vh'}}>
+      <div className="row" style={{backgroundColor:'#fff', height:'55px'}}>
+        <label style={{fontSize:'22px',height:'100%',fontWeight:'400',margin:'12px 12px 12px 60px'}}>Edit Profile</label>
+      </div>
+    <form onSubmit={this.updatingProfile}>
+			<div className={styles.well} style={{margin:'50px 50px 250px 80px'}}>
 				<div className="row" style={{margin:'0px',backgroundColor:'#337ab7'}}>
 					<div className="col-md-3" style={{minHeight:'300px', backgroundColor:'#337ab7', borderRadius:'3px'}}>
 						<div className="row text-center" style={{padding:'50px 30px'}}>
@@ -144,19 +140,20 @@ render() {
 								<div className="col-md-12">
 										<div className="form-group">
 											<label htmlFor="comment" className={styles.fieldname}>Profile Description<span className="kv-reqd">*</span></label>
-											<textarea className="form-control" rows="2" id="comment" name="userDesc" style = {{resize: 'vertical'}} value={this.state.params.user.userDesc} onChange={this.changeUser}></textarea>
+											<textarea className="form-control" rows="2" id="comment" name="userDesc" style = {{resize: 'vertical'}} value={this.state.params.user.userDesc} onChange={this.changeUser} required></textarea>
 									</div>
 								</div>
 							</div>
 
 							<div className="row" style={{padding:'15px 15px'}}>
 								<div className="text-right">
-									<button type="button" className="btn btn-primary btn-md" onClick={this.updatingProfile} style={{color:'#ffffff',backgroundColor: '#4FC3F7'}}><span className="glyphicon glyphicon-hand-up"></span> Submit</button>
+									<input type="Submit" className="btn btn-primary btn-md" value="Submit" style={{color:'#ffffff',backgroundColor: '#4FC3F7'}}></input>
 								</div>
 							</div>
 					</div>
 				</div>
 			</div>
+    </form>
 		</div>
 		)
 	}

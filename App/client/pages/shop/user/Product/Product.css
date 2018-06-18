@@ -1,0 +1,39 @@
+.productView {
+  float: left;
+  width:90%;
+  padding-top: 70px;
+  margin-right: 60px;
+}
+.detailsView {
+  width: 100%;
+  padding-top: 70px;
+}
+.name {
+  width: 100%;
+  font-weight: 600;
+  font-size: 25px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.flex_container2 {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  font-size: 20px;
+}
+.iframePDF {
+   width: 100%;
+}
+.manufacturer {
+  width: 100%;
+  font-weight: 500;
+  font-size: 20px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.manufacturer1 {
+  font-size: 25px;
+  font-weight: 600;
+  margin-left: 5px;
+}

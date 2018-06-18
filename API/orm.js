@@ -57,8 +57,33 @@ var singleton = function singleton() {
         models["Project"].hasMany(models["AppliedProject"], { foreignKey : 'projectId' , sourceKey : 'id'} );
         models["AppliedProject"].belongsTo(models["Project"],{foreignKey: 'projectId', targetKey: 'id'});
 
+        models["Project"].hasOne(models["Agreement"], { foreignKey : 'projectId' , sourceKey : 'id'} );
         models["Agreement"].belongsTo(models["Project"],{foreignKey: 'projectId', targetKey: 'id'});
+
         models["Project"].belongsTo(models["ProjectStatus"],{foreignKey: 'projectStatusId', targetKey: 'id'});
+
+        models["Project"].hasOne(models["Feedback"], { foreignKey : 'projectId' , sourceKey : 'id'} );
+        models["Feedback"].belongsTo(models["Project"],{foreignKey: 'projectId', targetKey: 'id'});
+
+        models["Developer"].hasMany(models["Feedback"], { foreignKey : 'developerId' , sourceKey : 'id'} );
+        models["Feedback"].belongsTo(models["Developer"],{foreignKey: 'developerId', targetKey: 'id'});
+
+        models["Client"].hasMany(models["Feedback"], { foreignKey : 'clientId' , sourceKey : 'id'} );
+        models["Feedback"].belongsTo(models["Client"],{foreignKey: 'clientId', targetKey: 'id'});
+
+        models["User"].hasOne(models["Cart"], { foreignKey : 'userId' , sourceKey : 'id'} );
+        models["Cart"].belongsTo(models["User"],{foreignKey: 'userId', targetKey: 'id'});
+
+        models["Product"].hasMany(models["Cart"], { foreignKey : 'productId' , sourceKey : 'id'} );
+        models["Cart"].belongsTo(models["Product"],{foreignKey: 'productId', targetKey: 'id'});
+
+        models["Order"].hasMany(models["OrderInfo"], { foreignKey : 'orderId'} );
+        // models["OrderInfo"].belongsTo(models["Order"],{foreignKey: 'orderId', targetKey: 'id'});
+
+        // models["OrderInfo"].hasMany(models["Product"], { foreignKey : 'productId' , sourceKey : 'id'} );
+        models["OrderInfo"].belongsTo(models["Product"],{foreignKey: 'productId', targetKey: 'id'});
+
+        models["Order"].hasOne(models["Payment"], { foreignKey : 'orderId' , sourceKey : 'id'} );
 
     }
 
@@ -82,7 +107,7 @@ var singleton = function singleton() {
                 if("relations" in object){
                     relationships[modelName] = object.relations;
                 }
-                // models[modelName].sync({});
+                models[modelName].sync({});
             }
             else {
                 console.info("Swap file : " + name);

@@ -27,6 +27,8 @@ class ConfirmPage extends React.Component{
 		console.log(this.props.params.token);
 		const user = this.state.user
 		user['token'] = this.props.params.token;
+		user['message'] = "Successfully verified your account!"
+		user['image'] = require('./Animation2.gif')
 		this.setState({user})
 		AuthLayer.confirmEmail(this.state.user)
 		.then(response => {
@@ -41,7 +43,7 @@ class ConfirmPage extends React.Component{
 				} else {
 					let user = this.state.user
 					user['message'] = response.data.error
-					//user['image'] = require('./Animation2.gif')
+					user['image'] = ""
 					this.setState({user})
 					setTimeout(function() { this.context.router.push('/') }.bind(this), 3000);
 					//alert(JSON.stringify(response.data.error))

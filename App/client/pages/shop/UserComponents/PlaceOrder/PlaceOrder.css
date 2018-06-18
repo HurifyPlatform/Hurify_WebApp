@@ -1,0 +1,69 @@
+.placeorderform {
+
+  margin: 40px auto;
+  position: relative;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-image: #448AFF;
+  padding:25px 20px;
+	/*border-right: 2px solid green;
+  height: 500px;*/
+
+}
+.keys {
+  padding-left: 130px;
+}
+@media screen and (max-width: 900px) {
+    .keys {
+        padding-left: 0px;
+    }
+}
+.cartItems {
+  margin-top: 20px;
+
+}
+.addressBox {
+
+}
+
+.oderdetailsDiv{
+
+	margin: 0px auto;
+
+}
+.oderdetailstable{
+
+}
+.oderdetailstable, th, td{
+	border: 1px solid black;
+  border-collapse: collapse;
+
+}
+
+.oderdetailstable th, td {
+	padding: 15px;
+	text-align: left;
+}
+
+.oderdetailstable td:nth-child(1) {
+	width:28%;
+}
+
+.placeorderdiv {
+	display: flex;
+	flex-flow: row wrap;
+	justify-content: center;
+}
+.listofProducts{
+	width: 100%;
+}
+.listofProducts, th,td{
+	border: 1px solid black;
+  border-collapse: collapse;
+}
+.listofProducts th, td {
+	padding: 15px;
+	text-align: left;
+}

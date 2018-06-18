@@ -5,11 +5,12 @@ var namespace = require("./namespace");
 var router = express.Router();
 var user = {}
 var Promise = require("bluebird");
+const svgCaptcha = require('svg-captcha');
 var crypto = require('crypto');
 var path = require('path')
 require('es6-promise').polyfill();
 require('isomorphic-fetch');
-var fs      = require('fs');
+var fs = require('fs');
 
 router.use(function(req, res, next) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -66,6 +67,10 @@ router.use(function timeLog(req, res, next) {
     }
 });
 
+router.get('/check', function(req, res){
+        return res.json({success:true});
+});
+
 router.post('/uploadprofilephoto', function(req, res) {
     if (!req.files)
         return res.status(400).send('No files were uploaded.');
@@ -89,27 +94,82 @@ router.post('/uploadprofilephoto1', function(req, res) {
     let extname = req.body.extn;
 
     var data = req.body.data,
-    base64Data,
-	binaryData;
+        base64Data,
+        binaryData;
 
-	base64Data  =   data.replace(/^data:image\/png;base64,/, "");
-	base64Data  +=  base64Data.replace('+', ' ');
-	binaryData  =   new Buffer(base64Data, 'base64').toString('binary');
+    base64Data = data.replace(/^data:image\/png;base64,/, "");
+    base64Data += base64Data.replace('+', ' ');
+    binaryData = new Buffer(base64Data, 'base64').toString('binary');
 
-	fs.writeFile('uploads/' + filename + '.' + extname, binaryData, "binary", function (err) {
-	    if (err) {
+    fs.writeFile('uploads/' + filename + '.' + extname, binaryData, "binary", function(err) {
+        if (err) {
             return res.status(500).send(err);
         }
         return res.send({
             success: true
         });
-	});
+    });
 });
+
+
+router.post('/adminlogin', function(req, res) {
+    try {
+        return coreapi.adminLogin(req.body).then(result => {
+            sendSuccess(res, result, requestId);
+        }).catch(err => {
+            sendError(res, err, requestId);
+        })
+    } catch (err) {
+        sendError(res, err, requestId);
+    }
+})
+
+router.get('/captcha', function (req, res) {
+    try {
+        var captcha = svgCaptcha.create({noise: 2, width : 100, height : 50, fontSize : 36});
+        console.log("captcha: ",captcha);
+        let token = crypto.randomBytes(20).toString('hex');
+        var data = {
+            text : captcha.text,
+            captchaToken : token
+        }
+        var response = {
+            captchaToken : token,
+            data : captcha.data
+        }
+        return coreapi.setCaptchaDetails(data).then(created => {
+            res.type('svg');
+            console.log("data: ", data);
+            console.log("response: ", response);
+            sendSuccess(res, response, requestId);
+        }).catch(err => {
+            console.log("Err: ", err);
+            sendError(res, err, requestId);
+        });
+    } catch(err) {
+        console.log("Err1: ", err);
+        sendError(res, err, requestId);
+    }
+});
+
 
 router.post('/signup', function(req, res) {
     try {
         var data = req.body;
         return coreapi.createAccount(data, req).then(function(result) {
+            sendSuccess(res, result, requestId);
+        }).catch(function(err) {
+            sendError(res, err, requestId);
+        });
+    } catch (err) {
+        sendError(res, err, requestId);
+    }
+});
+
+router.post('/signupforandroid', function(req, res) {
+    try {
+        var data = req.body;
+        return coreapi.createAccountForAndroid(data, req).then(function(result) {
             sendSuccess(res, result, requestId);
         }).catch(function(err) {
             sendError(res, err, requestId);
@@ -139,7 +199,7 @@ router.post('/login', function(req, res) {
             namespace.set("user", user);
             sendSuccess(res, result, requestId);
         }).catch(function(err) {
-          console.log(err);
+            console.log(err);
             sendError(res, err, requestId);
         });
     } catch (err) {
@@ -182,5 +242,30 @@ router.post('/updateforgotpassword', function(req, res) {
         sendError(res, err, requestId);
     }
 });
+
+router.get('/checktokenaddressexistence', function(req, res) {
+    try {
+        return coreapi.checkTokenAddressExistence(req.query.toAddress).then(function(result) {
+            return sendSuccess(res, result, requestId)
+        }).catch(function(err) {
+            sendError(res, err, requestId);
+        });
+    } catch (err) {
+        sendError(res, err, requestId);
+    }
+});
+
+router.post('/adduserquerybeforelogin', function(req, res) {
+    try {
+        return coreapi.addUserQuery(req.body).then(function(result) {
+            return sendSuccess(res, result, requestId)
+        }).catch(function(err) {
+            sendError(res, err, requestId);
+        });
+    } catch (err) {
+        sendError(res, err, requestId);
+    }
+});
+
 
 module.exports = router;

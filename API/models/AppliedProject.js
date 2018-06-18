@@ -45,6 +45,7 @@ module.exports = {
             },
             beforeFind : function(result) {
             }
-        }
+        },
+        indexes: [ { unique: true, fields: ['projectId', 'developerId'] } ]
     }
 }

@@ -1,0 +1,167 @@
+.shopLandpage
+{
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+}
+
+.productCategoriesListDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+
+}
+.productCategoriesListDiv > div {
+	background-color: #ffffff;
+	width:230px;
+	margin:8px;
+}
+.CategoriesDiv
+{
+		display: flex;
+		flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+.CategoriesDiv > div
+{
+	margin:5px;
+}
+.CategorieNameDiv {
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+}
+.CategorieName
+{
+	font-size: 16px;
+	font-weight: 600;
+  text-transform: capitalize;
+}
+.CategoriesIcon > img {
+	width:35px;
+	margin:2px;
+}
+
+.FeaturedCategorieDiv
+{
+	display: flex;
+	flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.FeaturedCategorieDiv > div
+{
+	width:230px;
+	height:430px;
+	margin:10px;
+	padding: 5px;
+
+}
+.FeaturedCategoriesProductDiv {
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+}
+.FeatureProductsCategName {
+  text-transform: capitalize;
+}
+.FeaturedCategoriesProductInnerDiv
+{
+	   display: flex;
+	  flex-direction: column;
+    flex-wrap: wrap;
+    padding: 5px;
+    border: 1px solid #ccc;
+}
+.FeaturedProductImageDiv {
+	text-align: center;
+	padding: 5px;
+}
+
+.FeaturedProductImageDiv img
+{
+	height:160px;
+	width:160px;
+  cursor:pointer;
+}
+.FeatureProductNameDiv {
+  text-align: left;
+}
+.productName {
+  text-transform: capitalize;
+  font-size: 16px;
+  font-weight: 600;
+	overflow: hidden;
+   	text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 20px;     /* fallback */
+    height: 20px;      /* fallback */
+   -webkit-line-clamp: 4; /* number of lines to show */
+   -webkit-box-orient: vertical;
+
+}
+.FeatureProductName span {
+  font-size: 1.6em;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.FeaturedProductDescDiv
+{
+	padding: 4px;
+}
+.FeaturedProductContent
+{
+	font-size: 14px;
+	overflow: hidden;
+   	text-overflow: ellipsis;
+    display: -webkit-box;
+    line-height: 16px;     /* fallback */
+    height: 64px;      /* fallback */
+   -webkit-line-clamp: 4; /* number of lines to show */
+   -webkit-box-orient: vertical;
+}
+.FeaturedProductPrice
+{
+
+}
+.FeaturedProductPrice span
+{
+	font-size: 1.6em;
+	font-weight: 700;
+	color:#000;
+}
+.FeaturedAddCartButtonDiv {
+	display: flex;
+	flex-direction: column;
+    flex-wrap: wrap;
+	text-align: center;
+}
+.FeaturedAddCartButtonDiv1 button {
+	width:200px;
+	background-color: #528EC1;
+	border-color: #528EC1;
+	font-size: 18px;
+	color:#fff;
+}
+
+.FeaturedCountProdctDiv
+{
+	display: flex;
+	flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-bottom: 10px;
+    padding-top:10px;
+}
+
+.FeaturedCountProdctDiv > div {
+	padding-left: 5px;
+}
+.AddProductCount span {
+
+	font-weight: 600;
+}

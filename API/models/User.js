@@ -15,17 +15,17 @@ module.exports = {
             allowNull: false
         },
         active : {
-            type     : Sequelize.BOOLEAN, 
+            type     : Sequelize.BOOLEAN,
             allowNull: false,
             defaultValue: 0
         },
         emailConfirmationToken : {
             type     : Sequelize.STRING,
-            allowNull: false
+            allowNull: true
         },
         emailConfirmationTokenExpTime : {
             type     : Sequelize.DATE,
-            allowNull: false
+            allowNull: true
         },
         forgotPasswordToken : {
             type     : Sequelize.STRING,
@@ -42,7 +42,107 @@ module.exports = {
         profilePhotoPath : {
             type     : Sequelize.STRING,
             allowNull: true
-        }
+        },
+        tokenSaleStatus : {
+            type     : Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue: 0
+        },
+        profileUpdateStatus : {
+            type     : Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue: 0
+        },
+        uuid : {
+            type     : Sequelize.STRING,
+            allowNull: false
+        },
+        walletAddress : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        purchaseCurrencyAddress : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        referralCode : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        referrerCode : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        tokenSaleWhiteListPageFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       tokenSalePageFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       tokenSaleWhiteListFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       telegramBountyFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       productHuntFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       KYCFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       blackList : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       HURTokens : {
+           type     : Sequelize.DOUBLE,
+           allowNull: true
+       },
+       HURTransactionHash : {
+           type     : Sequelize.STRING,
+           allowNull: true
+       },
+       stakes : {
+           type     : Sequelize.DOUBLE,
+           allowNull: true
+       },
+       isAdmin : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       cookiePolicyFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       gdprApprovalFlag : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: true
+       },
+       is_deleted : {
+           type     : Sequelize.BOOLEAN,
+           allowNull: false,
+           defaultValue: 0
+       },
+       gdprApprovalTime : {
+           type     : Sequelize.DATE,
+           allowNull: true
+       }
     },
     options : {
         timestamps: true,

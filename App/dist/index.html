@@ -3,33 +3,128 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="google-site-verification" content="_YTXK_8ROKyTkrf-xaGDVGyyUWW1_WoHNmsJhr-hz8c" />
         <title>Hurify</title>
         <style>
         * { margin: 0; padding: 0 }
         *,*:before,*:after { box-sizing:border-box }
         html { height: 100%; background: #274768 }
-        body,html { height:100%; font: 13px/1 'Open Sans', sans-serif;}
+        body,html { height:100%;}
         :link,:visited { text-decoration:none }
         ul,ol { list-style:none }
-        h1,h2,h3,h4,h5,h6,pre,code { font-size:1em }
+
         a img,:link img,:visited img { border:none }
         #root { height: 100vh }
-        .navbar 
+
+        @fontface {
+            font-family: 'Source Sans Pro', sans-serif;
+            src: url('https://fonts.googleapis.com/css?family=Source+Sans+Pro:200,200i,300,300i,400,400i,600,600i,700,700i,900,900i')
+        }
+
+        body{
+            font-family: 'Source Sans Pro', sans-serif !important;
+        }
+        .navbar
         {
-            border-radius:0px ! important;
-            background-color: transparent !important;
+            border-radius:0px !important;
+            font-family: 'Open Sans',serif;
+
+        }
+        .navbar-brand>img {
+            width: 125px;
+            margin-top:-20px;
+        }
+
+        .main{
+
+            flex: 1;
+            min-height: 100vh;
+            font-family: 'Source Sans Pro', sans-serif;
+            //background: #2980b9 url('https://static.tumblr.com/03fbbc566b081016810402488936fbae/pqpk3dn/MRSmlzpj3/tumblr_static_bg3.png') repeat 0 0;
+            background: linear-gradient(to bottom, #020107 0%, #201b46 100%);
+            -webkit-animation: 10s linear 0s normal none infinite animate;
+            -moz-animation: 10s linear 0s normal none infinite animate;
+            -ms-animation: 10s linear 0s normal none infinite animate;
+            -o-animation: 10s linear 0s normal none infinite animate;
+            animation: 10s linear 0s normal none infinite animate;
+         }
+
+         @-webkit-keyframes animate {
+            from {background-position:0 0;}
+            to {background-position: 500px 0;}
+        }
+
+        @-moz-keyframes animate {
+            from {background-position:0 0;}
+            to {background-position: 500px 0;}
+        }
+
+        @-ms-keyframes animate {
+            from {background-position:0 0;}
+            to {background-position: 500px 0;}
+        }
+
+        @-o-keyframes animate {
+            from {background-position:0 0;}
+            to {background-position: 500px 0;}
+        }
+
+        @keyframes animate {
+            from {background-position:0 0;}
+            to {background-position: 500px 0;}
+        }
+
+        input:focus ~ label, input.used ~ label {
+            top: -20px;
+            -webkit-transform: scale(.75);
+          transform: scale(.75); left: -2px;
+        /* font-size: 14px; */
+            color: #4a89dc;
+        }
+        .kv-avatar .krajee-default.file-preview-frame,.kv-avatar .krajee-default.file-preview-frame:hover {
+            margin: 0;
+            padding: 0;
+            border: none;
+            box-shadow: none;
+            text-align: center;
+        }
+        .kv-avatar {
+            display: inline-block;
+        }
+        .kv-avatar .file-input {
+            display: table-cell;
+            width: 213px;
+        }
+        .kv-reqd {
+            color: red;
+            font-family: monospace;
+            font-weight: normal;
+        }
+
+        #content {
+            overflow-y: scroll !important;
         }
         </style>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/latest/css/bootstrap.min.css">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Questrial|Raleway:500|Open+Sans:400,600,700">        
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Questrial|Raleway:500|Open+Sans:400,600,700">
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-108749294-1"></script>
+        <script src="//code.tidio.co/ldjgcwoyxo73f02vqhgrb7tghvzycjgb.js"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'UA-108749294-1');
+        </script>
     </head>
     <body>
         <div id="root">
-        </div>    
+        </div>
     </body>
-        <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" ></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" ></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" ></script>
-        <script type="text/javascript" src="/index_bundle.js"></script></body>
+    <script src="https://code.jquery.com/jquery-3.1.1.slim.min.js" ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tether/1.4.0/js/tether.min.js" ></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" ></script>
+    <script type="text/javascript" src="/index_bundle.js"></script></body>
 </html>

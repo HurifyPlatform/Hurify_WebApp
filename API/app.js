@@ -1,3 +1,4 @@
+require('sqreen');
 var bodyParser = require("body-parser");
 var express = require('express');
 var namespace = require("./namespace");
@@ -6,9 +7,37 @@ var winston = require("winston");
 
 var patchBlueBird = require('cls-bluebird');
 patchBlueBird(ns);
-
-var config = require("./config");
+var crypt = require('./crypt');
+var configObj = require("./config");
+var config = JSON.parse(crypt.decrypt(configObj.allConfigData));
+console.log('\n\n\n');
+console.log(config);
 var app = express();
+
+if (config.env === 'production') {
+	app.use(function(req, res, next) {
+		if((!req.secure) && (req.get('X-Forwarded-Proto') !== 'https')) {
+			res.redirect('https://' + req.get('Host') + req.url);
+		} else {
+			next();
+		}
+	});
+}
+
+app.use(function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+    if ('OPTIONS' === req.method) {
+      res.send(200);
+    }
+    else {
+      next();
+    }
+});
+// var Ddos = require('ddos')
+// var ddos = new Ddos({burst:10, limit:50})
+// app.use(ddos.express);
 
 app.use(function(res, req, next) {
 	ns.bindEmitter(req);
@@ -40,7 +69,7 @@ var orm = require("./orm").setup('./models', config.db, config.username, config.
 	},
 });
 
-require("./CoreAPI").setup(config.logger);
+require("./CoreAPI").setup();
 
 var apicall = require("./apicall");
 var auth = require("./auth");
@@ -58,7 +87,7 @@ var urlencodedParser = bodyParser.urlencoded({
 app.use(jsonParser);
 app.use(urlencodedParser);
 
-app.use(express.static(require('path').join(__dirname, 'uploads')));
+app.use(express.static(require('path').join(__dirname, '/')));
 
 app.use("/auth", auth);
 
@@ -78,7 +107,7 @@ function errorHandler(err, req, res, next) {
 var server = app.listen(config.port, function() {
 	var host = server.address().address;
 	var port = server.address().port;
-	winston.log('info', 'Paasmer API listening at http://%s:%s', host, port);
+	winston.log('info', 'Hurify API listening at http://%s:%s', host, port);
 });
 
 process.on('uncaughtException', function(err) {

@@ -11,7 +11,8 @@ class ResendEmailConfirmation extends React.Component{
 		this.state = {
       		user: {
 	        	emailId: ''
-      		}
+      		},
+					value:false
     	}
 		this.resendClick = this.resendClick.bind(this);
 		this.changeUser = this.changeUser.bind(this);
@@ -22,24 +23,30 @@ class ResendEmailConfirmation extends React.Component{
 	}
 	resendClick(event)
 	{
+		this.setState({
+			value:true
+		})
 		event.preventDefault();
 		if (!this.state.user.emailId.length) {
+			this.setState({
+				value:false
+			})
 			alert('email is required, Please enter')
 		}
 		else {
 			console.log(this.state.user);
 	    	AuthLayer.attemptResendVerification(this.state.user)
 	    	.then(response => {
-					//alert(JSON.stringify(response.data))
 	      	if (response.data.success){
 	      		alert(JSON.stringify(response.data.data))
-	        	this.setState({
-	          	status: response.status,
-	          	message: response.data.message,
-	          	errors: response.data.errors
-	        })
+						this.setState({
+							value:false
+						})
 					this.hide();
 	      } else {
+					this.setState({
+						value:false
+					})
 	        alert(JSON.stringify(response.data.error))
 
 	      }
@@ -48,7 +55,6 @@ class ResendEmailConfirmation extends React.Component{
 
 	}
 	changeUser(event) {
-		console.log(event.target.value)
 			const field = event.target.name
 			const user = this.state.user
 			user[field] = event.target.value
@@ -61,8 +67,8 @@ class ResendEmailConfirmation extends React.Component{
 					<a onClick={this.hide} href="#close" title="Close" className={resendStyles.closeButton}>X</a>
 					<div className={resendStyles.content}>
 							<h2 className={resendStyles.formHeading}>Resend Verification</h2>
-							<input className={resendStyles.inputField} type="email" placeholder="Email" name="emailId" value={this.state.email} onChange={this.changeUser} onClick={this.onclick} />
-							<a className={resendStyles.btn} href="#" onClick = {this.resendClick} style={{textDecoration:'none'}}>Resend</a>
+							<input className={resendStyles.inputField} type="email" placeholder="Email" name="emailId" value={this.state.email} onChange={this.changeUser} onClick={this.onclick} required/>
+							<input type="submit" className="btn btn-primary btn-md" style={{marginTop:'25px',backgroundColor:'#2979FF'}} disabled={this.state.value} value="Resend"></input>
 				 </div>
 			  </form>
 			</div>

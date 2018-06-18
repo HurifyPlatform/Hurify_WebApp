@@ -27,7 +27,7 @@ module.exports = {
             allowNull : false,
         },
         userId : {
-            type     : Sequelize.BIGINT, 
+            type     : Sequelize.BIGINT,
             allowNull: false,
         },
         status : {
@@ -50,20 +50,15 @@ module.exports = {
             		request["requestBy"] = user.email;
             	}
             	else {
-            		if(request.requestUrl == '/login/authenticate') {
 	            		var requestData = JSON.parse(request.requestData);
-                        if ("email" in requestData) {
-                            request["userId"] = 0;
-                            request["requestBy"] = requestData.email;   
-                        } else {
-                            request["userId"] = 0;
-                            request["requestBy"] = 'unknownEmail';
-                        }
-	            	} else {
-		            	request["userId"] = 0;
-		            	request["requestBy"] = 'unknownEmail';
-		            }
-		        }
+                  if ("email" in requestData) {
+                      request["userId"] = 0;
+                      request["requestBy"] = requestData.email;
+                  } else {
+                      request["userId"] = 0;
+                      request["requestBy"] = 'unknownEmail';
+                  }
+		           }
             },
             beforeCreate : function(result) {
             },

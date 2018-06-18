@@ -1,0 +1,403 @@
+header1{
+    background: #0268a6;
+    padding: 5px 32px;
+    box-shadow: 0px 8px 18px rgba(0,0,0,0.033);
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 100;
+    animation: slideUp 300ms linear;
+    .container{
+        display: flex;
+        display: -webkit-flex;
+        // max-width: 960px;
+        margin: 0 auto;
+        // padding: 0 32px;
+    }
+    @media (max-width: 991px){
+        padding: 16px;
+        .container{
+            padding: 0;
+        }
+    }
+    @media (max-width: 480px){
+        padding: 8px 12px;
+    }
+}
+@keyframes slideUp{
+    0% {
+        transform: translateY(30px);
+        opacity: .5;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.brand .logo{
+    width: 60px;
+    @media (max-width: 480px){
+        width: 50px;
+        margin: 0px 0;
+    }
+}
+
+
+.search{
+  margin-top: 15px;
+    margin-left: 64px;
+    flex-grow: 1;
+    -webkit-flex-grow: 1;
+    @media (max-width: 767px){
+        margin-left: 32px;
+    }
+    @media (max-width: 480px){
+        flex-grow: initial;
+        -webkit-flex-grow: initial;
+        margin-left: auto;
+    }
+}
+.search_form{
+    display: flex;
+    display: -webkit-flex;
+    @media (max-width: 480px){
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        // width: 100%;
+        padding: 8px;
+        background: #0268a6;
+        z-index: 100;
+        &.active{
+            display: flex;
+            display: -webkit-flex;
+        }
+    }
+    .search_keyword{
+        height: 36px;
+        border: 1px solid #0f243d;
+        color: #fff;
+        padding: 0 16px;
+        border-radius: 2px 0 0 2px;
+        // width: 100%;
+        // max-width: 330px;
+        &:focus{
+            outline: none;
+        }
+        @media (max-width: 480px){
+            height: 32px;
+            margin: 2px 0;
+        }
+    }
+    .search_button{
+        border-radius: 0 2px 2px 0;
+        background: #fff url(http://download.seaicons.com/icons/icons8/windows-8/72/Very-Basic-Search-icon.png) center no-repeat;
+        width: 96px;
+        @media (max-width: 480px){
+            height: 32px;
+            margin: 2px 0;
+        }
+    }
+}
+@media (min-width: 481px){
+    .mobile_search,
+    .back_button {
+        display: none;
+    }
+}
+@media (max-width: 480px){
+    .mobile_search{
+        display: block;
+        height: 36px;
+        width: 36px;
+    }
+    .back_button{
+        display: block;
+        margin-right: 8px;
+    }
+}
+
+
+.cart{
+    display: flex;
+    display: -webkit-flex;
+    margin-left: 4px;
+    position: relative;
+    z-index: 99;
+    @media (max-width: 991px){
+        margin-left: 16px;
+    }
+}
+.cart_info{
+  margin-top: 15px;
+    @media (max-width: 991px){
+        display: none;
+    }
+}
+.cart_info table{
+    font-size: 14px;
+    color: #fff;
+    text-align: right;
+    tr{
+        padding: 0;
+        margin: 0;
+    }
+    td{
+        padding: 0 4px;
+        // line-height: 16px;
+    }
+}
+.cart_icon{
+  margin-top: 15px;
+    margin-left: 16px;
+    position: relative;
+    background: #0268a6;
+    width: 90px;
+    text-align: center;
+    height: 40px
+}
+.cart_count{
+    @media (min-width: 992px){
+        display: none;
+    }
+    @media (max-width: 991px){
+        display: block;
+        position: absolute;
+
+        height: 24px;
+        line-height: 24px;
+        text-align: center;
+        font-size: 12px;
+
+        width: 24px;
+        border-radius: 50%;
+        top: -6px;
+        right: -9px;
+    }
+}
+.cart_preview{
+    display: none;
+    background: #fff;
+    border: 1px solid #fff;
+
+}
+.profile_preview {
+  display: none;
+  background: $white;
+  border: 1px solid $gray-eighty;
+}
+.profile_preview.active {
+  z-index: 99;
+  display: block;
+  position: absolute;
+  top: 50px;
+  right: 10;
+  width: 200px;
+  height: 200px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+  @media (max-width: 400px){
+      top: 45px;
+      width: 100%;
+      min-width: 300px;
+      & > div{
+          width: 100% !important;
+      }
+      .cart_items{
+          width: 100%;
+      }
+      .stepper_input{
+          a{
+              display: none;
+          }
+      }
+  }
+}
+.cart_preview.active{
+    z-index: 99;
+    display: block;
+    position: absolute;
+    top: 48px;
+    right: 0;
+    width: 360px;
+    height: 388px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+    @media (max-width: 400px){
+        top: 45px;
+        width: 100%;
+        min-width: 300px;
+        & > div{
+            width: 100% !important;
+        }
+        .cart_items{
+            width: 100%;
+        }
+        .stepper_input{
+            a{
+                display: none;
+            }
+        }
+    }
+}
+
+.action_block{
+    background: $white;
+    position: absolute;
+    bottom:0;
+    padding: 16px;
+    width: 100%;
+    button{
+        background: $primary-orange;
+        display: block;
+        width: 100%;
+        &.disabled{
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    }
+}
+.empty_cart{
+    text-align: center;
+    img{
+        width: 100%;
+        max-width: 250px;
+        margin: 42px auto 16px auto;
+    }
+    h2{
+        color: $gray-light;
+        font-size: 18px;
+    }
+}
+.cart_items{
+    height: 320px;
+    width: 360px;
+}
+.cart_item{
+    display: flex;
+    display: -webkit-flex;
+    align-items: center;
+    -webkit-align-items: center;
+    padding: 8px;
+    .product_image{
+        width: 48px;
+        height: 48px;
+    }
+    .product_info{
+        margin-left: 16px;
+        flex-grow: 1;
+        .product_name{
+            color: $gray-light;
+            font-size: 14px;
+        }
+        .product_price{
+            color: $gray-light;
+            font-weight: 700;
+            &:after{
+                font-size: 10px;
+                padding-left: 5px;
+                content: "HUR "
+            }
+        }
+    }
+    .product_total{
+        margin-left: 16px;
+         .quantity{
+            color: $gray-light;
+            font-size: 14px;
+            text-align: right;
+        }
+        .amount{
+            color: $gray-dark;
+            font-weight: 700;
+            text-align: right;
+            &:after{
+                font-size: 10px;
+                padding-left: 5px;
+                content: "HUR "
+            }
+        }
+
+    }
+    .product_remove{
+        margin-left: 24px;
+        height: 24px;
+        line-height: 24px;
+        width: 24px;
+        font-size: 22px;
+        color: $gray-eighty;
+        text-align: center;
+        &:hover{
+            color: $red;
+        }
+    }
+    &:hover{
+        background: $green-light-bg;
+    }
+}
+
+@keyframes tada {
+  from {
+    transform: scale3d(1, 1, 1);
+    opacity: 0;
+  }
+
+  10%, 20% {
+    transform: scale3d(.8, .66, .66) rotate3d(0, 0, 1, -3deg);
+  }
+
+  30%, 50%, 70%, 90% {
+    transform: scale3d(1.2, 1.2, 1.2) rotate3d(0, 0, 1, 3deg);
+  }
+
+  40%, 60%, 80% {
+    transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg);
+  }
+
+  to {
+    transform: scale3d(1, 1, 1);
+    opacity: 1;
+  }
+}
+
+.tada {
+  animation-name: tada;
+  animation-duration: 300ms;
+  animation-fill-mode: both;
+}
+.logout {
+  color: #0f243d;
+  padding-top: 25px;
+  margin-left: 50px;
+  @media (max-width: 400px){
+    margin-left: 10px;
+  }
+}
+.cart_image {
+  width: 25px;
+  height:25px;
+  margin-top: 8px;
+  padding-bottom: 0px;
+}
+.closeButton {
+	background: #DC143C;
+	color: #FFFFFF;
+	line-height: 25px;
+	position: absolute;
+	right: -12px;
+	text-align: center;
+	top: -10px;
+	width: 20px;
+	text-decoration: none;
+	font-weight: bold;
+  border-radius: 5px;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+	-moz-box-shadow: 1px 1px 3px #000;
+	-webkit-box-shadow: 1px 1px 3px #000;
+	box-shadow: 1px 1px 3px #000;
+}
+.bc_icons-2 .breadcrumb_item + .breadcrumb_item::before {
+    content: none; }
+.bc_icons-2 .breadcrumb_item.active {
+    color: #455a64; }

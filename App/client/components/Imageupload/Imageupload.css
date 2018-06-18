@@ -39,7 +39,8 @@
 }
 .submitButton {
   padding: 8px;
-  margin-left: 20px;
+  padding-left: 10px;
+  margin-left: 40px;
   background: #337ab7;
   border: 2px solid #fff;
   border-radius: 5px;

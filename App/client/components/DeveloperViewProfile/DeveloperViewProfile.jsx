@@ -3,15 +3,17 @@ import styles from './DeveloperViewProfile.css'
 import AuthLayer from './../../network/AuthLayer'
 import UserStore from './../../stores/UserStore'
 import PropTypes from 'prop-types'
-
-
-
+import Cookies from 'universal-cookie';
+import ReactStars from 'react-stars'
+var crypt = require('./../../../config/crypt')
+const cookies = new Cookies();
 class DeveloperViewProfile extends React.Component{
 	constructor(props){
 			super(props)
 			this.state = {
 						user: {
 	            token: '',
+              developerId:'',
 	            userId: '',
 							email: '',
 	           country: '',
@@ -22,21 +24,31 @@ class DeveloperViewProfile extends React.Component{
 	           categories: '',
 	           skills: '',
 	           userDesc: '',
+						 uuid: '',
+						 profileAttachment: '',
+						 referrerCode:'',
+             skillArray:[],
+             rating:'',
 	           profilePhotoPath: 'https://raw.githubusercontent.com/Ashwinvalento/cartoon-avatar/master/lib/images/male/45.png'
-						}
+					 },
+					 attachmentDisplay: 'block',
+					 referrerDisplay:'block',
+           statistics: {
+             appliedProjects:'',
+             projectsCompleted:'',
+             ongingProject:''
+           }
 				}
-	this.editProfileDetails = this.editProfileDetails.bind(this);
+				this.editProfileDetails = this.editProfileDetails.bind(this);
 		}
 		componentWillMount() {
-			console.log(localStorage.getItem('email'));
 	    const user = this.state.user
-	    user['userId'] = localStorage.getItem('UserID')
-	    user['token'] = localStorage.getItem('token')
+	    user['userId'] = crypt.decrypt(cookies.get('UserID'))
+	    user['token'] = crypt.decrypt(cookies.get('token'))
 	    this.setState({user})
-
 	        AuthLayer.getProfileDetails(this.state.user)
 	        .then(response => {
-	          alert(JSON.stringify(response.data))
+            console.log(JSON.stringify(response.data));
 	            if (response.data.success){
 								const user = this.state.user
 								user['email'] = response.data.data.user.email
@@ -48,121 +60,121 @@ class DeveloperViewProfile extends React.Component{
 	              user['categories'] = response.data.data.profile.categories
 	              user['skills'] = response.data.data.profile.skills
 	              user['userDesc'] = response.data.data.profile.userDesc
-								if (response.data.data.user.profilePhotoPath != null) {
+								user['uuid'] = response.data.data.user.uuid
+								user['profileAttachment'] = response.data.data.profile.attachmentPath
+                user['skillArray'] = (response.data.data.profile.skills).split(',')
+                var totalRating = 0
+                for (var i = 0; i < response.data.data.profile.Feedbacks.length; i++) {
+                  totalRating += response.data.data.profile.Feedbacks[i].rating
+                }
+                  user['rating'] = (totalRating/response.data.data.profile.Feedbacks.length)
+								if (response.data.data.user.referrerCode == null) {
+									this.state.referrerDisplay = "none"
+								}
+								else {
+									user['referrerCode'] = response.data.data.user.referrerCode
+								}
+								if ((response.data.data.profile.attachmentPath == "") || (response.data.data.profile.attachmentPath == null)) {
+									this.state.attachmentDisplay = 'none'
+								}
+	              if (response.data.data.user.profilePhotoPath != null) {
 	              	user['profilePhotoPath'] = response.data.data.user.profilePhotoPath
-	              this.setState({user})
-								UserStore.setProfilePhoto(response.data.data.user.profilePhotoPath)
-								localStorage.setItem('ProfilePhoto', response.data.data.user.profilePhotoPath)
+									cookies.set('ProfilePhoto', crypt.encrypt(response.data.data.user.profilePhotoPath), { path: '/' });
 							 }
 							 else {
-								 UserStore.setProfilePhoto("https://raw.githubusercontent.com/Ashwinvalento/cartoon-avatar/master/lib/images/male/45.png")
-								 localStorage.setItem('ProfilePhoto', "https://raw.githubusercontent.com/Ashwinvalento/cartoon-avatar/master/lib/images/male/45.png")
+								 user['profilePhotoPath'] = "https://raw.githubusercontent.com/Ashwinvalento/cartoon-avatar/master/lib/images/male/45.png"
+								 cookies.set('ProfilePhoto', crypt.encrypt("https://raw.githubusercontent.com/Ashwinvalento/cartoon-avatar/master/lib/images/male/45.png"), { path: '/' });
 							 }
-								UserStore.setName(response.data.data.profile.name)
-  							localStorage.setItem('name', response.data.data.profile.name)
+               user['developerId'] = response.data.data.profile.id
+                this.setState({user})
+               AuthLayer.developerDashboard(this.state.user)
+     	        .then(response1 => {
+                // alert(JSON.stringify(response1.data))
+                if (response1.data.success) {
+                  const statistics = this.state.statistics
+                  statistics["appliedProjects"] = response1.data.data.appliedProjects
+                  statistics["projectsCompleted"] = response1.data.data.projectsCompleted
+                  statistics["ongingProject"] = response1.data.data.ongingProject
+                  this.setState({statistics})
+                }
+              })
+							 cookies.set('name', crypt.encrypt(response.data.data.profile.name), { path: '/' });
+							 cookies.set('devid', crypt.encrypt(response.data.data.profile.id), { path: '/' });
 	            }
 							else {
-	             alert(JSON.stringify(response.data.error))
+ 							 if (response.data.error == "API session expired, Please login again!") {
+ 								 this.context.router.push('/logout');
+ 							 }
 	              }
 	        })
 		}
-
-
 	    editProfileDetails(event)
 	    {
-	      if (localStorage.getItem('account_type') == "developer") {
+	      if (crypt.decrypt(cookies.get('account_type')) == "developer") {
 	      this.context.router.push('/dashboard/developereditprofile')
 	    }
 	    else {
 	      this.context.router.push('/dashboard/clienteditprofile')
 	    }
-
 	      }
-
 render(){
 	return(
-			<div className="row" style={{padding:'100px 50px 50px 50px', backgroundColor:'#e2e2e2', flex:'1', minHeight:'85vh'}}>
-				<div className={styles.well}>
-					<div className="row" style={{margin:'0px'}}>
-						<div className="col-md-3" style={{minHeight:'400px', backgroundColor:'#337ab7', borderRadius:'3px'}}>
-							<div className="row text-center" style={{padding:'50px 30px'}}>
-								<img src={this.state.user.profilePhotoPath} name="aboutme" width="120" height="120" className="img-circle" />
-								<h4 style={{color:'#fff', paddingTop:'10px', fontSize:'1.2em'}}>{this.state.user.name}</h4>
-							</div>
+			<div className="row" style={{padding:'2px 0px 0px 20px', backgroundColor:'#d7e1eb', flex:'1', minHeight:'85vh'}}>
+				<div className="row" style={{backgroundColor:'#fff', height:'55px'}}>
+					<label style={{fontSize:'22px',height:'100%',fontWeight:'400',margin:'12px 12px 12px 60px'}}>Profile</label>
+				</div>
+				<div className={styles.well} style={{margin:'50px 100px 170px 130px'}}>
+					<div className="row" style={{margin:'10px', padding:'30px 0px 0px 0px'}}>
+            <div className="col-md-2">
+              <img src={this.state.user.profilePhotoPath} name="aboutme" width="100" height="120" className="img-circle" />
+            </div>
+            <div className="col-md-7">
+              <h4 style={{color:'#000', paddingTop:'0px', fontSize:'2em'}}>{this.state.user.name}</h4>
+              <span style={{paddingLeft:"10px",paddingTop:'5px'}}>{this.state.user.email}</span>
+              <div style={{paddingLeft:"10px",paddingTop:'5px'}}>{this.state.user.jobTitle}</div>
+              <div style={{paddingLeft:'10px',paddingTop:'3px'}}>Rate per Hour - {this.state.user.salaryPerHour} HUR</div>
+              <div style={{paddingLeft:'5px'}}>
+                <ReactStars
+                  count={5}
+                  size={24}
+                  color2={'#D4AF37'}
+                  edit={false}
+                  value={this.state.user.rating}
+                />
+              </div>
+              <div style={{padding:"0px 0px 0px 10px",display:this.state.referrerDisplay}}>Referral Code - {this.state.user.referrerCode}</div>
+            </div>
+            <div className="col-md-3" style={{}}>
+              <div style={{width:'90%',textAlign:'right',paddingTop:'10px'}}>
+                <div style={{margin:'0px',textAlign:'center',border:'1px', backgroundColor:'#3c8dbc',padding:'2px',color:'#fff',fontWeight:'900',fontSize:'1.2em',marginBottom:'10px'}}>Statistics</div>
+								<div>Applied Projects - {this.state.statistics.appliedProjects}</div>
+								<div>Projects Completed - {this.state.statistics.projectsCompleted}</div>
+								<div>Working Projects - {this.state.statistics.ongingProject}</div>
+              </div>
+            </div>
+					</div>
+          <div className="row" style={{margin:'0px 10px 10px 30px', padding:'20px 0px 5px 0px'}}>
+            <h5 style={{fontSize:'1.2em',padding:'0px 10px'}}>Profile Description</h5>
+            <div style={{margin:"10px 30px 0px 10px", textAlign:'justify'}}>{this.state.user.userDesc}</div>
+          </div>
+          <div className="row" style={{margin:'5px 20px',padding:'10px 0px 0px 0px'}}>
+            <div className="col-md-12 col-sm-6 col-xs-6">
+              {this.state.user.skillArray.map((i) =>
+                    <span className={styles.tech}>{i}</span>
+              )}
+            </div>
+          </div>
+					<div className="row" style={{margin:'25px 20px 0px 25px',padding:'10px 0px 0px 0px',display:this.state.attachmentDisplay}} >
+						<div className="col-md-12">
+							<span className="">Profile Attachment - <a className="" href={this.state.user.profileAttachment} download>Download</a></span>
 						</div>
-						<div className="col-md-9" style={{backgroundColor:'#222d32'}}>
-							<h3 className="text-center" style={{color:'#4FC3F7'}}></h3>
-								<div className="row" style={{padding:'15px 5px'}}>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Name</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.name}</span></div>
-										</div>
-									</div>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Email</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.email}</span></div>
-										</div>
-									</div>
-								</div>
-
-								<div className="row" style={{padding:'15px 5px'}}>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Country</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.country}</span></div>
-										</div>
-									</div>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Skills</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.skills}</span></div>
-										</div>
-									</div>
-								</div>
-								<div className="row" style={{padding:'15px 5px'}}>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Categories you are intrested</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.categories}</span></div>
-										</div>
-									</div>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Languages Known </span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.languages}</span></div>
-										</div>
-									</div>
-								</div>
-								<div className="row" style={{padding:'15px 5px'}}>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Job Title</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.jobTitle}</span></div>
-										</div>
-									</div>
-									<div className="col-md-6">
-										<div className="row text-left">
-											<div className="col-md-4 "><span className={styles.fieldname}>Salary per Hour</span></div>
-											<div className="col-md-8"><span className={styles.fieldvalue}>{this.state.user.salaryPerHour}</span></div>
-										</div>
-									</div>
-								</div>
-								<div className="row" style={{padding:'15px 5px'}}>
-									<div className="col-md-3 "><span className={styles.fieldname}>Profile Description:</span></div>
-
-								</div>
-								<div className="row" style={{padding:'0px 5px'}}>
-
-									<div className="col-md-12 text-left"><span className={styles.fieldvalue}>{this.state.user.userDesc}</span></div>
-								</div>
-								<div className="row" style={{padding:'20px 15px'}}>
-									<div className="text-right">
-										<button type="button" className="btn btn-primary btn-md" style={{color:'#ffffff',backgroundColor: '#4FC3F7'}} onClick={this.editProfileDetails}><span className="glyphicon glyphicon-pencil"></span> edit</button>
-									</div>
-								</div>
+					</div>
+					<div>
+					<div className="row" style={{padding:'20px 0px'}}>
+						<div className="text-right">
+							<button type="button" className="btn btn-primary btn-md" style={{color:'#ffffff',backgroundColor: '#3c8dbc',marginRight:'30px',padding:'5px 20px 5px 20px'}} onClick={this.editProfileDetails}><span className="glyphicon glyphicon-pencil"></span> Edit</button>
 						</div>
+					</div>
 					</div>
 				</div>
 			</div>

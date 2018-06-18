@@ -38,6 +38,10 @@ class UserStore {
                   if (lsProfilePhoto !== null) {
                       this.setProfilePhoto(lsProfilePhoto)
         }
+        let lsbalance = localStorage.getItem('balance')
+                  if (lsbalance !== null) {
+                      this.setProfilePhoto(lsbalance)
+        }
 
     }
     @observable UserID = null
@@ -49,6 +53,7 @@ class UserStore {
     @observable project_id = null
     @observable devid = null
     @observable ProfilePhoto = null
+    @observable balance = null
 
     @action setToken(token) {
         this.token = token
@@ -76,6 +81,9 @@ class UserStore {
     }
     @action setProfilePhoto(ProfilePhoto) {
         this.ProfilePhoto = ProfilePhoto
+    }
+    @action setBalance(balance) {
+        this.balance = balance
     }
 }
 

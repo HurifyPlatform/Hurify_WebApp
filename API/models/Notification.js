@@ -6,18 +6,19 @@ var sequelize = require("sequelize");
 module.exports = {
     model : {
         from : {
-            type     : Sequelize.STRING,
-            allowNull: false
+            type     : Sequelize.INTEGER,
+            allowNull: true,
+            defaultValue: 0
         },
         to : {
-            type     : Sequelize.STRING,
+            type     : Sequelize.INTEGER,
             allowNull: false
         },
         description : {
         	type     : Sequelize.STRING,
             allowNull: false
         },
-        shotDesc : {
+        shortDesc : {
             type     : Sequelize.STRING,
             allowNull: false
         }

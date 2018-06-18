@@ -57,6 +57,29 @@ module.exports = {
         developerId : {
             type     : Sequelize.INTEGER,
             allowNull: true
+        },
+        contractFlag : {
+            type     : Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue: 0
+        },
+        contractAddress : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        paymentFlag : {
+            type     : Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue: 0
+        },
+        paymentAddress : {
+            type     : Sequelize.STRING,
+            allowNull: true
+        },
+        isHidden : {
+            type     : Sequelize.BOOLEAN,
+            allowNull: false,
+            defaultValue : 0
         }
     },
     options : {

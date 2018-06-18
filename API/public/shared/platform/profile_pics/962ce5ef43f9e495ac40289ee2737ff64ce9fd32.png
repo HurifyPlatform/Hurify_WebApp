@@ -1,0 +1,3422 @@
+'use strict'
+const Sqreen = require('sqreen');
+const publicIp = require('public-ip');
+var util = require("util");
+var crypt = require('./crypt');
+var configObj = require("./config");
+const config = JSON.parse(crypt.decrypt(configObj.allConfigData));
+var crypto = require('crypto');
+var mc = require('mc');
+var orm = require("./orm");
+var Promise = require("bluebird");
+var async = require("async");
+var Sequelize = require("sequelize");
+const Op = Sequelize.Op;
+var namespace = require("./namespace");
+const pdfkit = require('./pdfkit');
+var uuid = require('uuid/v1');
+var AWS = require('aws-sdk');
+const Web3 = require('web3');
+const exec = require('child_process').exec;
+var nodemailer = require('nodemailer');
+var nodeSes = require('node-ses');
+var path = require('path');
+const fs = require('fs');
+var stringSearcher = require('string-search');
+var Hurify = require('./../App/client/components/DApp/build/contracts/Hurify.json');
+AWS.config.update({
+	accessKeyId: config.aws_access_key_id,
+	secretAccessKey: config.aws_secret_access_key,
+	region: config.aws_region
+});
+const IoT = new AWS.Iot({
+	apiVersion: config.awsiot_api_version
+});
+
+var AWSIoT = require('aws-iot-device-sdk');
+
+var https = require("https");
+
+var reCaptcha = require('recaptcha2')
+
+var recaptcha = new reCaptcha({
+	siteKey: config.recaptcha_siteKey,
+	secretKey: config.recaptcha_secretKey
+});
+const httpMode = (config.env == "production") ? "https://" : "http://";
+
+
+var CoreAPI = function CoreAPI() {
+	var sequelize = null;
+	var client = null;
+	var logger;
+
+	function init() {
+		sequelize = orm.getObj();
+		client = new mc.Client();
+		client.connect(function() {
+			console.log("Connected to memcached storage.");
+		});
+	}
+
+	this.setup = function() {
+		init();
+	}
+
+	this.getWhereObject = function() {
+		var whereObject = {};
+		var user = namespace.get("user");
+		return whereObject;
+	}
+
+	this.getQueryWhere = function(filter) {
+		var queryWhere = {};
+		return queryWhere;
+	}
+
+	this.getLoggedInUser = function(data) {
+		return new Promise(function(resolve, reject) {
+			var user = namespace.get("user");
+			return resolve(user);
+		}).catch(function(err) {
+			return reject(err);
+		});
+	}
+
+	this.addNewRequest = function(requestData, requestUrl) {
+		return new Promise(function(resolve, reject) {
+			try {
+				let requestId = crypto.randomBytes(20).toString('hex');
+				var Requests = orm.model("Request");
+				var options = {}
+				options["validate"] = true;
+				return Requests.create({
+					requestId: requestId,
+					requestData: JSON.stringify(requestData),
+					requestUrl: requestUrl,
+					requestToken: requestData["token"]
+				}, options).then(function(success) {
+					return resolve(success);
+
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.updateRequest = function(status, requestId, errorMsg) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Requests = orm.model("Request");
+				return Requests.findOne({
+					where: {
+						requestId: requestId
+					}
+				}).then(function(request) {
+					if (request) {
+						request["status"] = status;
+						request["errorMsg"] = errorMsg;
+						return request.save().then(function(success) {
+							return resolve(success);
+						}).catch(function(err) {
+							return reject(err);
+						});
+					} else
+						return reject("requestId not found");
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.getAgreement = function(agreementId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Agreement = orm.model("Agreement");
+				var Project = orm.model("Project");
+				return Agreement.findOne({
+					where: {
+						id: agreementId
+					},
+					include: [Project]
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.addProject = function(req, reqBody, files) {
+		return new Promise(function(resolve, reject) {
+			try {
+				let project = JSON.parse(reqBody.project);
+				project["projectStatusId"] = project.projectStatusId;
+				if (files != null) {
+					let file = files.file;
+					let filename = crypto.randomBytes(20).toString('hex');
+					let extname = path.extname(file.name);
+					var absPath = path.join(__dirname, 'uploads/project_files/' + filename + extname);
+					var serverFilePath = httpMode + req.headers.host + '/project_files/' + filename + extname;
+					file.mv(absPath, function(err) {
+						if (err) {
+							return reject({
+								"error": err
+							})
+						}
+						var Project = orm.model("Project");
+						project["attachmentPath"] = serverFilePath
+						return Project.create(project, {
+							validate: true
+						}).then(function(result) {
+							return resolve(result);
+						}).catch(function(err) {
+							return reject(err);
+						});
+					});
+				} else {
+					var Project = orm.model("Project");
+					return Project.create(project, {
+						validate: true
+					}).then(function(result) {
+						return resolve(result);
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.updateProjectStatus = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				return Project.update({
+					projectStatusId: data.projectStatusId
+				}, {
+					where: {
+						id: data.projectId
+					}
+				}).then(function(result) {
+					return resolve("Successfully updated project status!");
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		})
+	}
+
+	this.getAllProjects = function(clientId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				return Project.findOne({
+					where: {
+						clientId: clientId
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.validateRequest = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				if (!data["token"]) {
+					return reject("Can't read token");
+				}
+				var key = "login_" + data.token;
+				client.get(key, function(err, response) {
+					if (!response) {
+						return reject("API session expired, Please login again!");
+					} else {
+						if (key in response) {
+							var value = JSON.parse(response[key]);
+							client.set(key, JSON.stringify(value), {
+								flags: 0,
+								exptime: 7200
+							}, function(err, status) {
+								if (!err) {
+									return resolve(value);
+								} else {
+									return reject(err);
+								}
+							});
+						} else {
+							return reject("API session expired, Please login again!");
+						}
+					}
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.loginAuthenticate = function(data) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var emailId = data.email;
+				var pwdsha = coreapi.saltHashPassword(data.password);
+				var pwdmd5 = crypto.createHash('md5').update(data.password).digest('hex');
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						email: emailId
+					}
+				}).then(function(user) {
+					if (!user) {
+						Sqreen.auth_track(false, { email: user.email });
+						return reject("Email not registered!");
+					} else if (user.password != pwdsha && user.password != pwdmd5) {
+						Sqreen.auth_track(false, { email: user.email });
+						return reject("Incorrect password entered!");
+					} else if (user.active != 1) {
+						Sqreen.auth_track(false, { email: user.email });
+						return reject("Account is inactive (or) not verified!");
+					} else {
+						var token = crypto.randomBytes(20).toString('hex');
+						var key = "login_" + token;
+						return client.set(key, JSON.stringify(user), {
+							flags: 0,
+							exptime: 7200
+						}, function(err, status) {
+							if (!err) {
+								Sqreen.auth_track(true, { email: user.email });
+								return resolve({
+									"token": token,
+									"user": user
+								});
+							} else {
+								Sqreen.auth_track(false, { email: user.email });
+								return reject("Failed to generate token!");
+							}
+						});
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	// this.updateUserAccountType = function(data) {
+	//  return new Promise(function(resolve, reject) {
+	//      try {
+	//          let userId = data.userId;
+	//          let accountType = data.accountType;
+	//          var Users = orm.model("User");
+	//          return Users.findOne({
+	//              where: {
+	//                  id: userId
+	//              }
+	//          }).then(function(user) {
+	//              if (user) {
+	//                  user["userAccountType"] = accountType;
+	//                  return request.save().then(function(success) {
+	//                      return resolve(success);
+	//                  }).catch(function(err) {
+	//                      return reject(err);
+	//                  });
+	//              } else
+	//                  return reject("User Not Found!");
+	//          }).catch(function(err) {
+	//              return reject(err);
+	//          });
+	//      } catch (err) {
+	//          return reject(err)
+	//      }
+	//  })
+	// }
+
+	this.updateUserAccountType = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var userId = data.userId;
+				var accountType = data.userAccountType;
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(user) {
+					if (user) {
+						Users.update({
+							userAccountType: accountType
+						}, {
+							where: {
+								id: userId
+							}
+						}).then(function(success) {
+							return resolve("Successfully updated account type");
+						}).catch(function(err) {
+							return reject(err);
+						})
+					} else {
+						return reject("User Not Found!");
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		})
+	}
+
+
+
+	this.checkUserExistance = function(emailId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						email: emailId
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve(true);
+					} else {
+						return resolve(false);
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		})
+	}
+
+	this.sendMail = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var email = data.from;
+				var auth = {};
+
+				//Choose the configurations based on 'from' email.
+				if(email.indexOf('members@hurify.co') > -1) { //for signup mails linked with ashish@mobodexter.com
+				  auth = {
+						type : 'OAuth2',
+						user: config.email,
+						clientId: config.oauth_client_Id,
+						clientSecret: config.oauth_client_secret,
+						refreshToken: config.oauth_refresh_token
+					}
+				} else if(email.indexOf('hurifyteam@hurify.co') > -1) { //for whitelist mails linked with sri.krish@mobodexter.com
+					auth = {
+						type : 'OAuth2',
+						user: config.email_2,
+						clientId: config.oauth_client_Id_2,
+						clientSecret: config.oauth_client_secret_2,
+						refreshToken: config.oauth_refresh_token_2
+					}
+				} else if(email.indexOf('members2@hurify.co') > -1) { //for referral mails linked with srinidhi.murthy@mobodexter.com
+					auth = {
+						type : 'OAuth2',
+						user: config.email_3,
+						clientId: config.oauth_client_Id_3,
+						clientSecret: config.oauth_client_secret_3,
+						refreshToken: config.oauth_refresh_token_3
+					}
+				} else { //for support mail linked with sri.krish@mobodexter.com
+					auth = {
+						type : 'OAuth2',
+						user: config.email_2,
+						clientId: config.oauth_client_Id_2,
+						clientSecret: config.oauth_client_secret_2,
+						refreshToken: config.oauth_refresh_token_2
+					}
+				}
+
+				console.log("AuthObject: ", auth);
+
+				let transporter = nodemailer.createTransport({
+					host: 'smtp.gmail.com',
+					port: 465,
+					secure: true,
+					auth: auth
+				});
+
+
+				let mailOptions = {
+					from: email,//config.email,
+					to: data.to,
+					bcc : data.bcc,
+					subject: data.subject,
+					html: data.body,
+					attachments : data.attachments
+				};
+
+
+				transporter.sendMail(mailOptions, function(error, info) {
+					if (error) {
+						console.log("mailError: ",error);
+						return resolve(false);
+					} else {
+						return resolve(true);
+					}
+				});
+
+			} catch (err) {
+				console.log("mailError1: ",err);
+				return reject("Failed to send email!");
+			}
+		})
+	}
+
+
+	this.sendConfirmationAgain = function(emailId, req) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						email: emailId
+					}
+				}).then(function(user) {
+					if (!user) {
+						return reject("User not exist!");
+					}
+					let to = user.email;
+					let subject = "Hurify account confirmation!";
+					var url = 'http://platform.hurify.co/confirm/' + user.emailConfirmationToken;
+					var bcc = "ico@hurify.co";
+					let body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: center;line-height: 40px;">Thank you for signing up!<span style="display: block;">Please click the following link to activate your account.</span></div><div style="padding: 10px 0 50px 0;text-align: center;"><a href="' + url + '" style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration: none;border-radius:3px;letter-spacing: 0.3px;">Activate your Account</a></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+					var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+					return coreapi.sendMail({
+						"from" : config.name_and_email_3,
+						"to": to,
+						"subject": subject,
+						"body": body,
+						"bcc" : bcc,
+						"attachments" : attachments
+					}).then(function(success) {
+						if (success) {
+							return resolve("Mail sent successfully!");
+						} else {
+							return reject("Failed to send confirmation email!");
+						}
+					}).catch(function(err) {
+						console.log();
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+
+	this.saltHashPassword = function(password) {
+		var salt = 'hurifyshapaasmer';
+		return crypto.createHmac('sha512', salt).update(password).digest('hex')
+	}
+
+	this.createAccount = function(user, req) {
+		console.log(req.body)
+		var coreapi = this;
+		const uuidv1 = require("uuid/v1");
+		return new Promise(function(resolve, reject) {
+			try {
+				Sqreen.signup_track(user);
+				recaptcha.validate(req.body.captcha).then(() => {
+					coreapi.checkUserExistance(user.email).then(function(success) {
+						if (success) {
+							return reject("User Already exists!!");
+						}
+						var Users = orm.model("User");
+						var UUId = uuidv1();
+						var options = {};
+						options["validate"] = true;
+						user["password"] = coreapi.saltHashPassword(user["password"]);
+						var emailConfirmationToken = crypto.randomBytes(20).toString('hex');
+						var today = new Date();
+						var tomorrow = today.setDate(today.getDate() + 1);
+						user["emailConfirmationToken"] = emailConfirmationToken;
+						user["emailConfirmationTokenExpTime"] = tomorrow;
+						user["uuid"] = UUId;
+						if (user.referralCode == '7c5798' || user.referralCode == '12efed') {
+							user['tokenSalePageFlag'] = 1;
+						}
+
+						return Users.create(user, options).then(function(user) {
+							// var from = config.name_and_email;
+							let to = user.email;
+							let subject = "Hurify account confirmation!";
+							var bcc = "ico@hurify.co";
+							var url = 'https://platform.hurify.co/confirm/' + user.emailConfirmationToken;
+							let body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: center;line-height: 40px;">Thank you for signing up!<span style="display: block;">Please click the following link to activate your account.</span></div><div style="padding: 10px 0 50px 0;text-align: center;"><a href="' + url + '" style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration: none;border-radius:3px;letter-spacing: 0.3px;">Activate your Account</a></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+							var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+							return coreapi.sendMail({
+								"from": config.name_and_email,
+								"to": to,
+								"bcc" : bcc,
+								"subject": subject,
+								"body": body,
+								"attachments" : attachments
+							}).then(function(success) {
+								if (success) {
+									return resolve("Account created successfully!");
+								} else {
+									return reject("Failed to send confirmatiom email!");
+								}
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						})
+					}).catch(function(err) {
+						return reject(err);
+					});
+			    }).catch(function(err) {
+			    	return reject(err);
+			    });
+			} catch (err) {
+				console.log(err)
+				return reject(err);
+			}
+		});
+	}
+
+	// this.updateUserAndAddProfile = function(req) {
+	//  return new Promise(function(resolve, reject) {
+	//      try {
+	//          var data = req.body;
+	//          var files = req.files;
+	//          var userData = data.project;
+	//          if (typeof userData == "string") {
+	//              var userData = JSON.parse(userData);
+	//          }
+	//          let userId = userData.userId;
+	//          let accountType = data.userAccountType;
+	//          var Users = orm.model("User");
+	//          return Users.findOne({
+	//              where: {
+	//                  id: userId
+	//              }
+	//          }).then(function(user) {
+	//              if (user) {
+	//
+	//                  user["userAccountType"] = accountType;
+	//                  return user.save().then(function(success) {
+	//                      if (accountType == 'client') {
+	//                          var Client = orm.model("Client");
+	//                          Client.create(userData, {
+	//                              validate: true
+	//                          }).then(function(user) {
+	//                              return resolve("Successfully Added Profile Details!")
+	//                          });
+	//                      } else if (accountType == 'developer') {
+	//                          if (files != null) {
+	//                              let file = files.file;
+	//                              let filename = crypto.randomBytes(20).toString('hex');
+	//                              let extname = path.extname(file.name);
+	//                              var absPath = path.join(__dirname, 'uploads/developer_docs/' + filename + extname);
+	//                              var serverFilePath = httpMode + req.headers.host + '/developer_docs/' + filename + extname;
+	//                              file.mv(absPath, function(err) {
+	//                                  if (err) {
+	//                                      return reject({
+	//                                          "error": err
+	//                                      });
+	//                                  }
+	//                                  var Developer = orm.model("Developer");
+	//                                  userData["attachmentPath"] = serverFilePath
+	//                                  return Developer.create(userData, {
+	//                                      validate: true
+	//                                  }).then(function(user) {
+	//                                      return resolve("Successfully Added Profile Details!")
+	//                                  }).catch(function(err) {
+	//                                      return reject(err);
+	//                                  });
+	//                              });
+	//                          } else {
+	//                              var Developer = orm.model("Developer");
+	//                              Developer.create(userData, {
+	//                                  validate: true
+	//                              }).then(function(user) {
+	//                                  return resolve("Successfully Added Profile Details!")
+	//                              }).catch(function(err) {
+	//                                  return reject(err);
+	//                              });
+	//                          }
+	//                      }
+	//                  }).catch(function(err) {
+	//                      return reject(err);
+	//                  });
+	//              } else
+	//                  return reject("User Not Found!");
+	//          }).catch(function(err) {
+	//              return reject(err);
+	//          });
+	//      } catch (err) {
+	//          return reject(err)
+	//      }
+	//  })
+	// }
+
+	this.getUserProfile = function(userId) {
+		return new Promise(function(resolve, reject) {
+			console.log(" check1:");
+			try {
+				var User = orm.model("User");
+				return User.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(user) {
+					console.log(" check2:");
+					var accountType = user.userAccountType;
+					if (accountType == 'client') {
+						var Client = orm.model("Client");
+						return Client.findOne({
+							where: {
+								userId: userId
+							}
+						}).then(function(client) {
+							console.log(" check3:");
+							return resolve({
+								user: user,
+								profile: client
+							})
+						});
+					} else if (accountType == 'developer') {
+						console.log(" check4:");
+						var Developer = orm.model("Developer");
+						return Developer.findOne({
+							where: {
+								userId: userId
+							},
+							include: [orm.model("Feedback")]
+						}).then(function(developer) {
+							console.log(" check5:");
+							return resolve({
+								user: user,
+								profile: developer
+							})
+						});
+					} else {
+						return resolve({
+							message: "false"
+						});
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.forgotPassword = function(emailId) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				let User = orm.model("User")
+				User.findOne({
+					where: {
+						email: emailId
+					}
+				}, {
+					validate: true
+				}).then(function(result) {
+					if (!result) {
+						return reject("User not exist!")
+					}
+					var forgotPasswordToken = crypto.randomBytes(3).toString('hex');
+					var today = new Date();
+					var bcc = "ico@hurify.co";
+					var expDate = today.setDate(today.getDate() + 1)
+					let body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: center;line-height: 40px;">Thank you for your interest in Hurify.<span style="display: block;">Your six digits forgot password code is:</span></div><div style="padding: 10px 0 50px 0;text-align: center;"><span style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration: none;border-radius: 3px;letter-spacing: 0.3px;">' +forgotPasswordToken+ '</span></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+					var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+					User.update({
+						forgotPasswordToken: forgotPasswordToken,
+						forgotPasswordTokenExpTime: expDate
+					}, {
+						where: {
+							email: emailId
+						}
+					}).then(function() {
+						return coreapi.sendMail({
+							"from": config.name_and_email_3,
+							"to": emailId,
+							"bcc" : bcc,
+							"subject": 'Forgot Password',
+							"body": body,
+							"attachments" : attachments
+						}).then(function(success) {
+							if (success) {
+								return resolve("Token sent Successfully!");
+							} else {
+								return reject("Failed to send token!");
+							}
+						}).catch(function(err) {
+							return reject(err);
+						});
+					})
+				})
+			} catch (err) {
+				return reject(err)
+			}
+		})
+	}
+
+	this.updateForgotPassword = function(data) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				console.log("check1: ");
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						forgotPasswordToken: data.forgotPasswordToken
+					}
+				}).then(function(user) {
+					console.log("check2: ");
+					if (user) {
+						console.log("check3: ");
+						user['forgotPasswordToken'] = 'expired';
+						var password = coreapi.saltHashPassword(data.password);
+						user["password"] = password;
+						user['active'] = 1;
+						return user.save().then(function(success) {
+							console.log("check4: ");
+							return resolve("Successfully changed password!");
+						}).catch(function(err) {
+							console.log("Err1: ", err);
+							return reject(err);
+						});
+					} else
+						return reject("Invalid token or expired!");
+				}).catch(function(err) {
+					console.log("Err3: ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err3: ", err);
+				return reject(err)
+			}
+		});
+	}
+
+	this.editUserProfile = function(req) {
+		return new Promise(function(resolve, reject) {
+			try {
+				let data = req.body;
+				if (typeof data.user == 'string') {
+					data["user"] = JSON.parse(data.user)
+				}
+				var files = req.files;
+				var userId = data.user.userId;
+				var User = orm.model("User");
+				return User.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(user) {
+					let accountType = user.userAccountType;
+					if (accountType == 'client') {
+						var Client = orm.model("Client");
+						return Client.findOne({
+							where: {
+								userId: userId
+							}
+						}).then(function(client) {
+							for (var key in data.user) {
+								if (key == 'userId')
+									continue;
+								client[key] = data.user[key]
+							}
+							return client.save({
+								where: {
+									userId: userId
+								}
+							}).then(function() {
+								return resolve("Profile updated Successfully!")
+							});
+						});
+					} else if (accountType == 'developer') {
+						var Developer = orm.model("Developer");
+						return Developer.findOne({
+							where: {
+								userId: userId
+							}
+						}).then(function(developer) {
+							for (var key in data.user) {
+								if (key == 'userId')
+									continue;
+								developer[key] = data.user[key]
+							}
+							if (files != null) {
+								let file = files.file;
+								let filename = crypto.randomBytes(20).toString('hex');
+								let extname = path.extname(file.name);
+								var absPath = path.join(__dirname, 'uploads/developer_docs/' + filename + extname);
+								var serverFilePath = httpMode + req.headers.host + '/developer_docs/' + filename + extname;
+								file.mv(absPath, function(err) {
+									if (err) {
+										return reject({
+											"error": err
+										});
+									}
+									developer["attachmentPath"] = serverFilePath
+									return developer.save({
+										where: {
+											userId: userId
+										}
+									}).then(function(status) {
+										return resolve("Profile updated Successfully!")
+									}).catch(function(err) {
+										return reject(err);
+									});
+								});
+							} else {
+								return developer.save({
+									where: {
+										userId: userId
+									}
+								}).then(function(status) {
+									return resolve("Profile updated Successfully!")
+								}).catch(function(err) {
+									return reject(err);
+								});
+							}
+						});
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.editProject = function(req) {
+		var data = req.body;
+		var project = JSON.parse(data.project);
+		var projectId = project.projectId;
+		var files = req.files;
+		return new Promise(function(resolve, reject) {
+			try {
+				if (files != null) {
+					let file = files.file;
+					let filename = crypto.randomBytes(20).toString('hex');
+					let extname = path.extname(file.name);
+					var absPath = path.join(__dirname, 'uploads/project_files/' + filename + extname);
+					var serverFilePath = httpMode + req.headers.host + '/project_files/' + filename + extname;
+					file.mv(absPath, function(err) {
+						if (err) {
+							return reject({
+								"error": err
+							})
+						}
+						var Project = orm.model("Project");
+						project["attachmentPath"] = serverFilePath;
+						return Project.update(project, {
+							where: {
+								id: projectId
+							}
+						}).then(function(result) {
+							return resolve("Project updated Successfully!");
+						}).catch(function(err) {
+							return reject(err);
+						});
+					});
+				} else {
+					var Project = orm.model("Project");
+					return Project.update(project, {
+						where: {
+							id: projectId
+						}
+					}).then(function(updated) {
+						return resolve("Project updated Successfully!")
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.updateProfilePhoto = function(data) {
+		var userId = data.userId;
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return User.update({
+					profilePhotoPath: data.profilePhotoPath
+				}, {
+					where: {
+						id: userId
+					}
+				}).then(function(updated) {
+					return resolve("Profile Photo Uploaded Successfully!")
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.confirmRegistration = function(emailConfirmationToken) {
+		var coreapi = this
+		return new Promise(function(resolve, reject) {
+			try {
+				var Users = orm.model("User");
+				return Users.findOne({
+					where: {
+						emailConfirmationToken: emailConfirmationToken
+					}
+				}).then(function(user) {
+					if (user) {
+						var referralCode = crypto.randomBytes(3).toString('hex'),
+							referralLink = "https://platform.hurify.co/register/" + referralCode;
+						user['referrerCode'] = referralCode;
+						user['active'] = 1;
+						user['emailConfirmationToken'] = 'expired';
+						return user.save().then(function(success) {
+							var to = user.email;
+							var bcc = "ico@hurify.co";
+							var subject = "Referral code";
+							var bcc = "";
+							var body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: center;line-height: 40px;">Thank you for signing up!<span style="display: block;">Please share the following link to refer Hurify to your friends and family.</span></div><div style="padding: 10px 0 50px 0;text-align: center;"><span style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration:none;border-radius:3px;letter-spacing: 0.3px;">' +referralLink+ '</span></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?<a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;">contact us</a>today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The<a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;">Hurify</a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px >       </a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+							var attachments = [{ filename : "HURFIY1.png", path : "https://platform.hurify.co/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+							return coreapi.sendMail({
+								"from": config.name_and_email_3,
+								"to": to,
+								"bcc": bcc,
+								"subject": subject,
+								"body": body,
+								"attachments" : attachments
+							}).then(function(success) {
+								return resolve("Successfully verified user!");
+							}).catch(function(err) {
+								console.log("Err: ", err);
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("Err1: ", err);
+							return reject(err);
+						});
+					} else {
+						return reject("Invalid token or expired!");
+					}
+				}).catch(function(err) {
+					console.log("Err3: ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err4: ", err);
+				return reject(err)
+			}
+		});
+	}
+
+	this.getPostedProjects = function(clientId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				Project.findAll({
+					where: {
+						clientId: clientId
+					},
+					include: [orm.model("AppliedProject"), orm.model("ProjectStatus")]
+				}).then(function(result) {
+					return resolve(result)
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.applyProject = function(ProjectData) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var AppliedProject = orm.model("AppliedProject");
+				var Project = orm.model("Project");
+				return AppliedProject.create(ProjectData, {
+					validate: true
+				}).then(function(result) {
+					return Project.findOne({
+						where: {
+							id: ProjectData.projectId
+						},
+						include: [orm.model("Client")]
+					}).then(function(project) {
+						var userId = project.Client.userId;
+						let notificationData = {
+							to: userId,
+							shortDesc: "Application Received",
+							description: "The developer applied to project."
+						};
+						coreapi.addNotification(notificationData).then(function(success) {
+							return resolve(result);
+						}).catch(function(err) {
+							return reject(err);
+						})
+						return resolve(result);
+					}).catch(function(err) {
+						return reject(err);
+					});
+
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.getAppliedProjects = function(developerId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var AppliedProject = orm.model("AppliedProject");
+				AppliedProject.findAll({
+					where: {
+						developerId: developerId
+					},
+					include: [{
+						model: orm.model("Project"),
+						include: [{
+							model: orm.model("ProjectStatus")
+						}, {
+							model: orm.model("AppliedProject")
+						}]
+					}]
+				}).then(function(result) {
+					return resolve(result)
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.findProject = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var categories = data.categories;
+				var experienceLevel = data.experienceLevel;
+				var Project = orm.model("Project");
+				var queryWhere = {};
+				queryWhere["projectStatusId"] = {
+					[Op.gt]: 1,
+					[Op.lt]: 4
+				};
+
+				if (categories != '') {
+					categories = categories.replace(/,/g, "|")
+					queryWhere["category"] = {
+						[Op.regexp]: categories
+					}
+				}
+				if (experienceLevel != '') {
+					experienceLevel = experienceLevel.replace(/,/g, "|")
+					queryWhere["experienceLevel"] = {
+						[Op.regexp]: experienceLevel
+					}
+				}
+
+				return Project.findAll({
+					where: queryWhere,
+					include: [orm.model("ProjectStatus"), orm.model("AppliedProject")]
+				}).then(function(success) {
+					return resolve(success);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.getSingleProjectDetails = function(projectId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				return Project.findOne({
+					where: {
+						id: projectId
+					},
+					include: [{
+						model: orm.model("AppliedProject"),
+						include: [{
+							model: orm.model("Developer")
+						}]
+					}, orm.model("ProjectStatus"), orm.model("Agreement")]
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.selectDeveloperForEvaluation = function(projectDetails) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = projectDetails.projectId,
+					developerId = projectDetails.developerId;
+				var Project = orm.model("Project");
+				Project.update({
+					developerId: developerId,
+					projectStatusId: 3
+				}, {
+					where: {
+						id: projectId
+					}
+				}).then(function(updated) {
+					Project.findOne({
+						where: {
+							id: projectId,
+							developerId: developerId
+						}
+					}).then(function(result) {
+						return resolve(result);
+					}).catch(function(err) {
+						return reject(err);
+					})
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.addNotification = function(notification) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Notification = orm.model("Notification");
+				return Notification.create(notification, {
+					validate: true
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.getNotifications = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Notification = orm.model("Notification");
+				return Notification.findAll({
+					where: {
+						to: userId
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.deleteProject = function(projectId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				return Project.findOne({
+					where: {
+						id: projectId
+					}
+				}).then(function(result) {
+					if (result.projectStatusId < 4) {
+						return Project.destroy({
+							where: {
+								id: projectId,
+								projectStatusId: {
+									[Op.lt]: 4
+								}
+							}
+						}).then(function(success) {
+							return resolve("Project deleted successfully.");
+						}).catch(function(err) {
+							return reject(err);
+						});
+					} else {
+						return reject("Cannot delete Project after the developer is finalized.")
+					}
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.sendNegotiationFormToDeveloper = function(projectDetails) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = projectDetails.projectId;
+				var Agreement = orm.model("Agreement");
+				var Project = orm.model("Project");
+				Project.update({
+					approvalFlag: 1
+				}, {
+					where: {
+						id: projectId
+					}
+				}).then(function(updated) {
+					Agreement.create(projectDetails, {
+						where: {
+							projectId: projectId
+						}
+					}).then(function(inserted) {
+						Project.findOne({
+							where: {
+								id: projectId
+							}
+						}).then(function(result) {
+							return resolve(result);
+						}).catch(function(err) {
+							return reject(err)
+						});
+					}).catch(function(err) {
+						return reject(err);
+					})
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.developerAcceptsNegotiationForm = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Agreement = orm.model("Agreement");
+				var Project = orm.model("Project");
+				return Agreement.update({
+					developerHURAddress: data.developerHURAddress
+				}, {
+					where: {
+						projectId: data.projectId
+					}
+				}).then(function(result) {
+					return Project.update({
+						projectStatusId: 4
+					}, {
+						where: {
+							id: data.projectId
+						}
+					}).then(function(result) {
+						return Agreement.findOne({
+							where: {
+								projectId: data.projectId
+							}
+						}).then(function(result) {
+							return resolve(result);
+						}).catch(function(err) {
+							return reject(err);
+						});
+					}).catch(function(err) {
+						return reject(err);
+					})
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.developerRejectsNegotiationForm = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				var Agreement = orm.model("Agreement");
+				return Agreement.destroy({
+					where: {
+						id: data.agreementId
+					}
+				}).then(function(result) {
+					return Project.update({
+						approvalFlag: 0,
+						projectStatusId: 2
+					}, {
+						where: {
+							id: data.projectId
+						}
+					}).then(function() {
+						return resolve("You have successfully rejected the negotiation form.");
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.discardSelectedDeveloper = function(projectDetails) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = projectDetails.projectId;
+				var Project = orm.model("Project");
+				Project.update({
+					developerId: null,
+					projectStatusId: 2
+				}, {
+					where: {
+						id: projectId
+					}
+				}).then(function(result) {
+					return resolve("Developer successfully discarded.");
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.generateEscrowPDFAgreement = function(req) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var agreementId = req.body.agreementId;
+				var Agreement = orm.model("Agreement"),
+					Project = orm.model("Project");
+				return Agreement.findOne({
+					where: {
+						id: agreementId
+					},
+					include: [{
+						model: Project,
+						include: [{
+							model: orm.model("Client")
+						}, {
+							model: orm.model("Developer")
+						}]
+					}]
+				}).then(function(result) {
+					return pdfkit.generatePDF(result).then(function(result) {
+						var filePath = httpMode + req.headers.host + '/escrowPDF/' + result.fileName;
+						return Agreement.update({
+							filePath: filePath
+						}, {
+							where: {
+								id: agreementId
+							}
+						}).then(function(updated) {
+							return Agreement.findOne({
+								where: {
+									id: agreementId
+								},
+								include: [{
+									model: Project,
+									include: [{
+										model: orm.model("Client")
+									}, {
+										model: orm.model("Developer")
+									}]
+								}]
+							}).then(function(result) {
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							})
+						}).catch(function(err) {
+							return reject(err);
+						});
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err)
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.walletBalance = function(fromAddress) {
+		return new Promise(function(resolve, reject) {
+			try {
+				let web3 = new Web3();
+				web3.setProvider(new web3.providers.HttpProvider('http://106.51.44.203:8545'));
+				// var hurAddress = req.body.hurAddress; //0x5EC3d2f42252641c79cB709c07537Decb4F55369
+				var abi = '[{"constant":false,"inputs":[],"name":"pauseable","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"hault","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"unpause","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_value","type":"uint256"}],"name":"burn","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_from","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"price","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_hurclan","type":"address"}],"name":"ethtransfer","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_from","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Burn","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_from","type":"address"},{"indexed":false,"name":"_to","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Approval","type":"event"}]';
+
+				var myContract = new web3.eth.Contract(JSON.parse(abi), '0x40e624d93110a8324920f011b80c6db0fab2b85b', {
+					//from: '0xbf3b79a27a91a8dc12d66eb1785c37b73c597706', // default from address
+					from: "0xbf3b79a27a91a8dc12d66eb1785c37b73c597706",
+					gasPrice: '20000000000' // default gas price in wei, 20 gwei in this case
+				});
+
+				myContract.methods.balanceOf(fromAddress).call({
+					from: fromAddress
+					//from: '0xbf3b79a27a91a8dc12d66eb1785c37b73c597706'
+				}).then(function(result) {
+					var balanceAmount = result / 1000000000000000000;
+					console.log("BalanceAmount", balanceAmount);
+					return resolve({success : "true" , balanceAmount : balanceAmount});
+				}).catch(function(err) {
+					console.log("Err: ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err1: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+	this.transferAmount = function(walletAddress, bidValue) {
+		return new Promise(function(resolve, reject) {
+			try {
+				let web3 = new Web3();
+				var provider = new web3.providers.HttpProvider('http://106.51.44.203:8545');
+				const contract = require('truffle-contract');
+				const hurify = contract(Hurify);
+				console.log("hurify",hurify);
+				hurify.setProvider(provider);
+				console.log("providers:",web3.version);
+				var hurifyInstance = "";
+				//hurify.currentProvider.sendAsync=function(){
+				//	return hurfiy.currentProvider.send.apply(hurify.currentProvider,arguments);
+				//};
+				hurify.deployed().then((instance) => {
+					hurifyInstance = instance;
+					//console.log("deploying",hurifyInstance);
+					return hurifyInstance.transfer("0xbf3b79a27a91a8dc12d66eb1785c37b73c597706", bidValue, {
+						from: walletAddress
+					})
+				}).then((result) => {
+					if (result.receipt.status == "0x1") {
+						return resolve({
+							success: true
+						});
+					} else {
+						return reject({
+							success: false
+						});
+					}
+				}).catch((err) => {
+					console.log("Err1: ", err);
+					return reject(err);
+				})
+			} catch (err) {
+				console.log("Err2: ", err);
+				return reject(err);
+			}
+		});
+	}
+	this.payment = function(walletAddress, bidValue) {
+		return new Promise(function(resolve, reject) {
+			try {
+				//let web3 = new Web3();
+				let web3 = new Web3();
+				web3.setProvider(new web3.providers.HttpProvider('http://106.51.44.203:8545'));
+				var abi = '[{"constant":false,"inputs":[],"name":"pauseable","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"hault","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"unpause","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_value","type":"uint256"}],"name":"burn","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_from","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"price","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_hurclan","type":"address"}],"name":"ethtransfer","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_from","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Burn","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"_from","type":"address"},{"indexed":false,"name":"_to","type":"address"},{"indexed":false,"name":"_value","type":"uint256"}],"name":"Approval","type":"event"}]';;
+
+
+				const contract = new web3.eth.Contract(JSON.parse(abi), '0x40e624d93110a8324920f011b80c6db0fab2b85b', { from: '0xbf3b79a27a91a8dc12d66eb1785c37b73c597706', gas: 100000});
+
+				console.log("list :",walletAddress);
+				web3.eth.personal.unlockAccount(walletAddress, "mobo1234", 1500);
+
+				contract.methods.balanceOf('0xbf3b79a27a91a8dc12d66eb1785c37b73c597706').call()
+				.then(console.log)
+				.catch(console.error);
+				contract.methods.balanceOf('0x618104bCe7958ed2883006fec6009336dc05Bf0d').call()
+				.then(console.log)
+				.catch(console.error);
+				const totalBidValue = parseFloat(bidValue).toFixed(0) + "000000000000000000"
+				contract.methods.transfer(walletAddress, totalBidValue).send()
+				.then(result => {
+					if(result.status == "0x1"){
+
+						console.log("success payment");
+					}
+					else{
+						console.log("fails");
+					}
+				})
+
+			} catch (err) {
+				console.log("Err2: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+	this.deployAgreement = function(data) {
+		console.log("check 1:");
+		return new Promise(function(resolve, reject) {
+			try {
+				var coreapi = this;
+				var agreementId = data.agreementId;
+				var Agreement = orm.model("Agreement");
+				var Project = orm.model("Project");
+				return Agreement.findOne({
+					where: {
+						id: agreementId
+					},
+					include: [{
+						model: Project,
+						include: [{
+							model: orm.model("Client")
+						}, {
+							model: orm.model("Developer")
+						}]
+					}]
+				}).then(function(result) {
+					console.log("check 2:");
+					var client = result.clientHURAddress,
+						developer = result.developerHURAddress,
+						title = result.Project.projectName,
+						bidValue = result.bidValue,
+						timeframe = result.estimatedDays,
+						startDate = result.startDate,
+						myDate = new Date(startDate + " 05:30:00 "),
+						startTime = myDate.getTime() / 1000.0,
+						hurify = '0x40e624d93110a8324920f011b80c6db0fab2b85b',
+						EscrowfileName = "Escrow",
+						projectId = result.Project.id;
+
+					fs.writeFile('./../App/client/components/DApp/contracts/' + EscrowfileName + '.sol', 'pragma solidity ^0.4.15;\n\ncontract Escrow {\n\t/*\n\tGobal variables are declared here\n\t*/\n\taddress client = ' + client + ';\n\taddress developer = ' + developer + ';\n\tstring public title = \"' + title + '\";\n\tuint public bidValue = ' + bidValue + ';\n\tuint public timeframe = ' + timeframe + ';\n\tuint public starttime = ' + startTime + '; \n\taddress hurify = ' + hurify + ' ;\n\n\tfunction pay() payable public { \n\t\thurify.call(bytes4(sha3("transferFrom(bool)")), client, developer, bidValue); \n\t } \n\n\t function refund() payable public { \n\t\t require( now > starttime + ' + timeframe + ' days); \n\t\thurify.call(bytes4(sha3("transferFrom(bool)")), client, client, bidValue);\n\t}\n\n}', function(err) {
+						if (err) {
+							return reject(err);
+						}
+						console.log("check 3:");
+						console.log(".sol file created");
+						fs.readdir('./../App/client/components/DApp/migrations', function(err, files) {
+							if (err) {} else {
+								exec('rm -rf ./../App/client/components/DApp/migrations/*.js', function(error, stdout, stderr) {
+									if (error) {
+										return reject(error);
+									}
+									console.log("check 4:");
+									console.log("deleted all files from migrations directory.");
+									let len = files.length + 1;
+									fs.writeFile('./../App/client/components/DApp/migrations/' + len + '_' + EscrowfileName + '.js', 'var hurify = artifacts.require(\'' + '.\/' + EscrowfileName + '.sol\');\n\nmodule.exports = function(deployer) {\n\tdeployer.deploy(hurify).then(function(){\n\t\tconsole.log(hurify.address);\n\t\treturn hurify.address;\n\t\t});\n}', function(err) {
+										if (err) {
+											return reject(err);
+										}
+										console.log("check 5:");
+										console.log(".js file created"); //After this
+										let web3 = new Web3();
+										web3.setProvider(new web3.providers.HttpProvider('http://106.51.44.203:8545'));
+										var fromAddress = web3.eth.accounts[1];
+										console.log("check 6:");
+										console.log("from: ", fromAddress);
+										var flag = web3.personal.unlockAccount(fromAddress, "karthikn", 1500);
+
+										if (flag) {
+											console.log("check 7:");
+											// var absPath = path.join(__dirname, './../App/client/components/DApp')
+											// exec('cd ' + absPath  + ' && truffle migrate --reset', function(err, stdout, stderr) {
+											exec('truffle migrate --network rinkeby --reset', {
+												cwd: './../App/client/components/DApp'
+											}, function(err, stdout, stderr) {
+												if (err) {
+													console.log("Err :", err);
+													return reject(err);
+												}
+												console.log("check 8:");
+												stringSearcher.find(stdout, 'Escrow: ').then(function(resultArr) {
+													console.log("Address: ", resultArr[0].text.trim().split(" ")[1]);
+													var contractAddress = resultArr[0].text.trim().split(" ")[1];
+													// console.log("contractAddress: ", contractAddress);
+													return Project.update({
+														contractAddress: contractAddress,
+														projectStatusId: 5
+													}, {
+														where: {
+															id: projectId
+														}
+													}).then(function(updated) {
+														console.log("check 9:");
+														return resolve("success");
+													}).catch(function(err) {
+														console.log("Err 1:", err);
+														return reject(err);
+													});
+												}).catch(function(err) {
+													console.log("Err 2:", err);
+													return reject(err);
+												});
+											});
+										} else {
+											console.log("Err 3:", err);
+											return reject("Migration failed.");
+										}
+									});
+								});
+							}
+						})
+					});
+				}).catch(function(err) {
+					console.log("Err 4:", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err 5:", err);
+				return reject(err);
+			}
+		})
+	}
+
+	this.unlock = function() {
+		return new Promise(function(resolve, reject) {
+			try {
+				let web3 = new Web3();
+				web3.setProvider(new web3.providers.HttpProvider('http://106.51.44.203:8545'));
+				var fromAddress = web3.eth.accounts[1];
+				console.log("from: ", fromAddress);
+				var flag = web3.personal.unlockAccount(fromAddress, "karthikn", 1500);
+				return resolve(flag);
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.developerAcceptsContract = function(projectId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Project = orm.model("Project");
+				Project.update({
+					contractFlag: 1
+				}, {
+					where: {
+						id: projectId
+					}
+				}).then(function(updated) {
+					return resolve("Successfully accepted the contract.");
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.developerClaimsForPayment = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = data.projectId;
+				var Project = orm.model("Project");
+				var Agreement = orm.model("Agreement");
+				return Project.findOne({
+					where: {
+						id: projectId
+					}
+				}).then(function(result) {
+					if (!result) {
+						return reject("no such project exists");
+					}
+					if (result.paymentFlag == 1) {
+						return reject("Already claimed for payment");
+					}
+					return Project.update({
+						paymentFlag: 1,
+						projectStatusId: 6
+					}, {
+						where: {
+							id: projectId
+						}
+					}).then(function(updated) {
+						return resolve("successfully claimed for payment.");
+					}).catch(function(err) {
+						return reject(err)
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.clientRejectsPayment = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = data.projectId;
+				var Project = orm.model("Project");
+				var Agreement = orm.model("Agreement");
+				return Project.update({
+					paymentFlag: 0,
+					projectStatusId: 5
+				}, {
+					where: {
+						id: projectId
+					}
+				}).then(function(updated) {
+					return resolve("Successfully rejected payment")
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.addFeedback = function(feedback) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Feedback = orm.model("Feedback");
+				var Project = orm.model("Project");
+				return Feedback.findOne({
+					where: {
+						projectId: feedback.projectId,
+						clientId: feedback.clientId,
+						developerId: feedback.developerId
+					}
+				}).then(function(result) {
+					if (!result) {
+						return Feedback.create(feedback, {
+							validate: true
+						}).then(function(created) {
+							return Feedback.findOne({
+								where: {
+									projectId: feedback.projectId
+								}
+							}).then(function(result) {
+								// return resolve(result);
+								if (result.rating < 3) {
+									return Project.update({
+										projectStatusId: 7
+									}, {
+										where: {
+											id: feedback.projectId
+										}
+									}).then(function(updated) {
+										return Feedback.findOne({
+											where: {
+												projectId: feedback.projectId
+											}
+										}).then(function(result) {
+											return resolve(result);
+										}).catch(function(err) {
+											return reject(err);
+										});
+									}).catch(function(err) {
+										return reject(err);
+									});
+								} else {
+									return Project.update({
+										projectStatusId: 7
+									}, {
+										where: {
+											id: feedback.projectId
+										}
+									}).then(function(updated) {
+										return Feedback.findOne({
+											where: {
+												projectId: feedback.projectId
+											}
+										}).then(function(result) {
+											return resolve(result);
+										}).catch(function(err) {
+											return reject(err);
+										});
+									}).catch(function(err) {
+										return reject(err);
+									});
+								}
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						});
+					} else {
+						return reject("You have already given Feedback for this Developer.");
+					}
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.getFeedbackDetails = function(developerId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Feedback = orm.model("Feedback");
+				return Feedback.findAndCountAll({
+					where: {
+						developerId: developerId
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+
+	this.addPaymentAddress = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var projectId = data.projectId;
+				var paymentAddress = data.paymentAddress;
+				var Project = orm.model("Project");
+				return Project.findOne({
+					where: {
+						id: projectId
+					}
+				}).then(function(result) {
+					if (result) {
+						return Project.update({
+							paymentAddress: paymentAddress
+						}, {
+							where: {
+								id: projectId
+							}
+						}).then(function(success) {
+							return Project.findOne({
+								where: {
+									id: projectId
+								}
+							}).then(function(result) {
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						})
+					} else {
+						return reject("No such project exists.")
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.addTokenSaleData = function(tokenData) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				var Users = orm.model("User");
+				var walletAddress = '';
+				if (tokenData.currency == 'BTC') {
+					walletAddress = "1FL35xbb4uDB9vU2yr6FsJxZeJVf5K9faE";
+				} else if (tokenData.currency == 'ETH') {
+					walletAddress = "0xa1Cf400C056CF6D58c5efaD53E70919aFb95b466";
+				} else if (tokenData.currency == 'LTC') {
+					walletAddress = "LL7h7DndiAaXdAHcc2wRbyaFWJpKcMbdht";
+				} else if (tokenData.currency == 'DASH') {
+					walletAddress = "XmnJmamBBWhBR2E2vD8SPpPxvkwb6pRX3i";
+				} else if (tokenData.currency == 'BCH') {
+					walletAddress = "1LgqU2PzAsbNZJ9j5zjrxs1Mxd8JcjGRCX";
+				} else if (tokenData.currency == 'BTG') {
+					walletAddress = "3LCdYFYas3RpTQTiToiQQ8mxheFZ9ttygy";
+				}
+				var email = tokenData.email;
+				var from = config.name_and_email;
+				var to = email;
+				var subject = "Hurify Token Sale";
+				let body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: center;line-height: 40px;">Hi ' + tokenData.firstName + ' ' + tokenData.lastName + ', Welcome to hurify token pre-sale.<br> You have chosen the option of purchasing tokens with ' + tokenData.currency + ' Please transfer the '+ tokenData.currency +' to our Escrow wallet address.</div><div style="padding: 10px 0 50px 0;text-align: center;"><span style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration: none;border-radius: 3px;letter-spacing: 0.3px;">' +walletAddress+ '</span></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					if (!result) {
+						TokenSale.create(tokenData, {
+							validate: true
+						}).then(function(success) {
+							Users.update({
+								tokenSaleStatus: 1
+							}, {
+								where: {
+									email: email
+								}
+							}).then(function(success) {
+								return resolve("Your details has been saved. Also we have sent you details in mail.");
+							}).catch(function(err) {
+								return reject(err);
+							})
+						}).catch(function(err) {
+							return reject(err);
+						})
+					} else {
+						return reject("You have already registered for the token sale.");
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.addProfile = function(req) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var data = req.body;
+				var files = req.files;
+				var userData = data.project;
+				if (typeof userData == "string") {
+					var userData = JSON.parse(userData);
+				}
+				var userId = userData.userId;
+				var walletAddress = userData.walletAddress;
+				var purchaseCurrencyAddress = userData.purchaseCurrencyAddress
+				var accountType = data.userAccountType;
+				var Users = orm.model("User");
+
+				return Users.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(user) {
+					if (user) {
+						if (user.userAccountType == "client") {
+							var Client = orm.model("Client");
+							return Client.create(userData, {
+								validate: true
+							}).then(function(user) {
+								return Users.update({
+									profileUpdateStatus: 1,
+									walletAddress: walletAddress,
+									purchaseCurrencyAddress: purchaseCurrencyAddress
+								}, {
+									where: {
+										id: userId
+									}
+								}).then(function(success) {
+									return resolve("Profile details added successfully");
+								}).catch(function(err) {
+									return reject(err);
+								})
+							}).catch(function(err) {
+								return reject(err);
+							})
+						} else if (user.userAccountType == "developer") {
+							if (files != null) {
+								let file = files.file;
+								let filename = crypto.randomBytes(20).toString('hex');
+								let extname = path.extname(file.name);
+								var absPath = path.join(__dirname, 'uploads/developer_docs/' + filename + extname);
+								var serverFilePath = httpMode + req.headers.host + '/developer_docs/' + filename + extname;
+								file.mv(absPath, function(err) {
+									if (err) {
+										console.log("files Err : ", err);
+										return reject({
+											"error": err
+										});
+									}
+									var Developer = orm.model("Developer");
+									userData["attachmentPath"] = serverFilePath
+									return Developer.create(userData, {
+										validate: true
+									}).then(function(user) {
+										return Users.update({
+											profileUpdateStatus: 1,
+											walletAddress: walletAddress,
+											purchaseCurrencyAddress: purchaseCurrencyAddress
+										}, {
+											where: {
+												id: userId
+											}
+										}).then(function(success) {
+											return resolve("Profile details added successfully");
+										}).catch(function(err) {
+											return reject(err);
+										})
+									}).catch(function(err) {
+										return reject(err);
+									});
+								});
+							} else {
+								var Developer = orm.model("Developer");
+								Developer.create(userData, {
+									validate: true
+								}).then(function(user) {
+									return Users.update({
+										profileUpdateStatus: 1,
+										walletAddress: walletAddress,
+										purchaseCurrencyAddress: purchaseCurrencyAddress
+									}, {
+										where: {
+											id: userId
+										}
+									}).then(function(success) {
+										return resolve("Profile details added successfully");
+									}).catch(function(err) {
+										return reject(err);
+									});
+								}).catch(function(err) {
+									return reject(err);
+								});
+							}
+						}
+					} else {
+						return reject("User not found!");
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.getTokenSaleData = function(email) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.updateTokenSaleData = function(tokenData) {
+		var coreapi = this
+		return new Promise(function(resolve, reject) {
+			try {
+				var walletAddress = '';
+				if (tokenData.currency == 'BTC') {
+					walletAddress = "1FL35xbb4uDB9vU2yr6FsJxZeJVf5K9faE";
+				} else if (tokenData.currency == 'ETH') {
+					walletAddress = "0xa1Cf400C056CF6D58c5efaD53E70919aFb95b466";
+				} else if (tokenData.currency == 'LTC') {
+					walletAddress = "LL7h7DndiAaXdAHcc2wRbyaFWJpKcMbdht";
+				} else if (tokenData.currency == 'DASH') {
+					walletAddress = "XmnJmamBBWhBR2E2vD8SPpPxvkwb6pRX3i";
+				} else if (tokenData.currency == 'BCH') {
+					walletAddress = "1LgqU2PzAsbNZJ9j5zjrxs1Mxd8JcjGRCX";
+				} else if (tokenData.currency == 'BTG') {
+					walletAddress = "3LCdYFYas3RpTQTiToiQQ8mxheFZ9ttygy";
+				}
+				var User = orm.model("User")
+				var TokenSale = orm.model("TokenSale");
+				var email = tokenData.email;
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					if (!result) {
+						return reject("No data found!")
+					} else {
+						return TokenSale.update(tokenData, {
+							where: {
+								email: email
+							}
+						}).then(function(success) {
+							return User.update({
+								tokenSaleStatus: tokenData.tokenSaleStatus
+							}, {
+								where: {
+									email: email
+								},
+								validate: true
+							}).then(function(success) {
+								if (tokenData.tokenSaleStatus == 1) {
+									return resolve("Successfully registered for Token Sale.");
+								} else {
+									var email = tokenData.email;
+									var from = config.name_and_email_2;
+									var to = email;
+									var bcc = "ico@hurify.co";
+									var subject = "Hurify Token Sale";
+									var body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: left;line-height: 40px;">Dear ' + result.firstName + ',<br> We thank you for the purchase of HUR tokens.<br> Your choice of currency : ' + result.currency + '<br> Number of ' + result.currency + ' : ' + tokenData.numberOfCryptoCurrency + ',<br> Transaction Hash : ' + tokenData.transactionHash + ' <br> Upon completion of Token Sale and successful validation of the transaction, HUR tokens shall be deployed to the Ethereum wallet address provided by you.<br> For any queries, mail us at <a href ="mailto:support@hurify.co">Support</a></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+									var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+									return coreapi.sendMail({
+										"from": from,
+										"to": to,
+										"bcc": bcc,
+										"subject": subject,
+										"body": body,
+										"attachments" : attachments
+									}).then(function(success) {
+										return resolve("Successfully registered for Token Sale.");
+									}).catch(function(err) {
+										console.log("Err1: ", err);
+										return reject(err);
+									});
+								}
+							}).catch(function(err) {
+								console.log("Err1: ", err);
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("Err1: ", err);
+							return reject(err);
+						});
+					}
+				}).catch(function(err) {
+					console.log("Err1: ", err);
+					return reject(err);
+				})
+			} catch (err) {
+				console.log("Err1: ", err);
+				return reject(err);
+			}
+		})
+	}
+
+	this.clientDashboard = function(clientId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var result = {};
+				var Project = orm.model("Project");
+				return Project.count({
+					where: {
+						clientId: clientId
+					}
+				}).then(function(postedProjects) {
+					result["postedProjects"] = postedProjects;
+					return Project.count({
+						where: {
+							clientId: clientId,
+							projectStatusId: 7
+						}
+					}).then(function(projectsCompleted) {
+						result["projectsCompleted"] = projectsCompleted;
+						return Project.count({
+							where: {
+								clientId: clientId,
+								projectStatusId: {
+									[Op.gte]: 5,
+									[Op.lt]: 7
+								}
+							}
+						}).then(function(ongingProject) {
+							result["ongingProject"] = ongingProject;
+							return Project.count({
+								where: {
+									clientId: clientId,
+									approvalFlag: 1,
+									developerId: {
+										[Op.ne]: 'null'
+									}
+								}
+							}).then(function(developerSelectedForProjects) {
+								result["developerSelectedForProjects"] = developerSelectedForProjects;
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						});
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.developerDashboard = function(developerId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var result = {};
+				var Project = orm.model("Project");
+				var AppliedProject = orm.model("AppliedProject");
+				return AppliedProject.count({
+					where: {
+						developerId: developerId
+					}
+				}).then(function(appliedProjects) {
+					result["appliedProjects"] = appliedProjects;
+					return Project.count({
+						where: {
+							developerId: developerId,
+							projectStatusId: 7
+						}
+					}).then(function(projectsCompleted) {
+						result["projectsCompleted"] = projectsCompleted;
+						return Project.count({
+							where: {
+								developerId: developerId,
+								projectStatusId: {
+									[Op.gte]: 5,
+									[Op.lt]: 7
+								}
+							}
+						}).then(function(ongingProject) {
+							result["ongingProject"] = ongingProject;
+							return Project.count({
+								where: {
+									developerId: developerId,
+									approvalFlag: 1
+								}
+							}).then(function(clientsAcceptedDeveloper) {
+								result["clientsAcceptedDeveloper"] = clientsAcceptedDeveloper;
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						});
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.sendUUIdConfirmation = function(emailConfirmationToken) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return User.findOne({
+					where: {
+						emailConfirmationToken: emailConfirmationToken
+					}
+				}).then(function(user) {
+					if (!user)
+						return reject("User not found!");
+					var userEmail = user.email;
+					var userUUId = user.uuid;
+					var bcc = "";
+					var body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: left;line-height: 40px;">Hi ' + data.firstName + ' ' + data.lastName + ',<br> Your details has been saved. Thanks for registering for Hurify token sale on Token Lot.;</div><div style="padding: 10px 0 50px 0;text-align: center;"></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+					//var body = '<body style="background: #ffffff;-webkit-font-smoothing: antialiased;-moz-osx-font-smoothing: grayscale;"><div style="max-width: 560px;padding: 20px;background: #2C1D4F;border-radius: 5px;margin:40px auto;font-family: Open Sans,Helvetica,Arial;font-size: 15px;color: #666;"><div style="color: #ffffff;font-weight: normal;"><div style="text-align: center;font-weight:600;font-size:26px;padding: 10px 0;border-bottom: solid 3px #eeeeee;">Hurify</div><div style="clear:both"></div></div><div style="padding: 0 30px 30px 30px;border-bottom: 3px solid #eeeeee;"><div style="padding: 30px 0;font-size: 24px;color:#ffffff;text-align: center;line-height: 40px;">Thank you for the account activation.<span style="display: block;">Please find your Hurify Profile ID.</span></div><div style="padding: 10px 0 50px 0;text-align: center;"> <h2 style="color:white; "">${userUUId}</h2></br></br></h3> This profile ID is required during token purchase. </h3></br></div><div style="padding: 15px;background: #eee;border-radius: 3px;text-align: center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;">contact  us</a> today.</div></div><div style="color: #999;padding: 20px 30px"><div style="">Thank you!</div><div style="">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;">Hurify</a> Team</div></div></div></body>';
+
+					var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+
+					return coreapi.sendMail({
+						"from": config.name_and_email,
+						"to": userEmail,
+						"bcc": bcc,
+						"subject": 'UUId Confirmation',
+						"body": body
+					}).then(function(success) {
+						if (success) {
+							return resolve(true);
+						} else {
+							return reject("Failed to send mail!");
+						}
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err)
+			}
+		});
+	}
+
+	this.tokenForm1 = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var email = data.email;
+				var TokenSale = orm.model("TokenSale");
+				var User = orm.model("User");
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(tokenResult) {
+					if (tokenResult) {
+						return reject("You are already registered.")
+					} else {
+						return TokenSale.create(data, {
+							validate: true
+						}).then(function(success) {
+							return User.update({
+								tokenSaleStatus: 1
+							}, {
+								where: {
+									email: email
+								},
+								validate: true
+							}).then(function(success) {
+								return resolve("Successfully registered for Token Sale.");
+							}).catch(function(err) {
+								console.log("err1: ", err);
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("err2: ", err)
+							return reject(err);
+						})
+					}
+				}).catch(function(err) {
+					console.log("err3: ", err)
+					return reject(err);
+				})
+			} catch (err) {
+				console.log("err4: ", err)
+				return reject(err);
+			}
+		})
+	}
+
+	this.tokenForm2 = function(data) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var email = data.email;
+				var User = orm.model("User");
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(tokenResult) {
+					if (tokenResult) {
+						return TokenSale.update(data, {
+							where: {
+								email: email
+							}
+						}).then(function(success) {
+							return User.update({
+								tokenSaleStatus: data.tokenSaleStatus
+							}, {
+								where: {
+									email: email
+								},
+								validate: true
+							}).then(function(success) {
+								return resolve("Successfully registered for Token Sale.");
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						})
+					} else {
+						return reject("Data for particular user doesn't exists.")
+					}
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.tokenForm3 = function(data) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var walletAddress = '';
+				if (data.currency == 'BTC') {
+					walletAddress = "1FL35xbb4uDB9vU2yr6FsJxZeJVf5K9faE";
+				} else if (data.currency == 'ETH') {
+					walletAddress = "0xa1Cf400C056CF6D58c5efaD53E70919aFb95b466";
+				} else if (data.currency == 'LTC') {
+					walletAddress = "LL7h7DndiAaXdAHcc2wRbyaFWJpKcMbdht";
+				} else if (data.currency == 'DASH') {
+					walletAddress = "XmnJmamBBWhBR2E2vD8SPpPxvkwb6pRX3i";
+				} else if (data.currency == 'BCH') {
+					walletAddress = "1LgqU2PzAsbNZJ9j5zjrxs1Mxd8JcjGRCX";
+				} else if (data.currency == 'BTG') {
+					walletAddress = "3LCdYFYas3RpTQTiToiQQ8mxheFZ9ttygy";
+				}
+				var email = data.email;
+				var User = orm.model("User");
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(tokenResult) {
+					if (tokenResult) {
+						return TokenSale.update(data, {
+							where: {
+								email: email
+							}
+						}).then(function(success) {
+							var from = config.name_and_email_2;
+							var to = email;
+							var bcc = "ico@hurify.co";
+							var subject = "Hurify Token Sale";
+							let body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: left;line-height: 40px;">Hi <b>' + data.firstName + ' ' + data.lastName + '</b>,<br> Welcome to hurify token pre-sale.\n You have chosen the option of purchasing tokens with <b>' + data.currency + '</b> Please transfer the <b>'+ data.currency +'</b> to our Escrow wallet address.</div><div style="padding: 10px 0 50px 0;text-align: center;"></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+							var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+							return coreapi.sendMail({
+								"from": from,
+								"to": to,
+								"bcc" : bcc,
+								"subject": subject,
+								"body": body,
+								"attachments" : attachments
+							}).then(function(success) {
+								if (success) {
+									return User.update({
+										tokenSaleStatus: data.tokenSaleStatus
+									}, {
+										where: {
+											email: email
+										},
+										validate: true
+									}).then(function(success) {
+										return resolve("Your details has been saved. Also, we have sent you details in mail.");
+									}).catch(function(err) {
+										return reject(err);
+									});
+								} else {
+									return reject("Failed to send confirmation email.");
+								}
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							return reject(err);
+						});
+					} else {
+						return reject("Data for particular user doesn't exists.")
+					}
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.checkTokenAddressExistence = function(toAddress) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						walletAddress: toAddress
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve("Success");
+					} else {
+						return reject("Email and Ethereum Address is not registered on Hurify. Please start your registration at http://hurify.co to continue!");
+					}
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+
+	this.getReferredUsersCount = function(referralCode) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return User.count({
+					where: {
+						referralCode: referralCode,
+						active: 1
+					}
+				}).then(function(count) {
+					return resolve(count);
+				}).catch(function(err) {
+					console.log("err1: ", err);
+					return reject(err)
+				});
+			} catch (err) {
+				console.log("err2: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+
+	this.checkIfReferralCodeExists = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return User.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(userData) {
+					if (userData.referrerCode == null) {
+						return resolve({
+							success: false
+						})
+					} else {
+						return resolve({
+							success: true
+						})
+					}
+				}).catch(function(err) {
+					return reject(err)
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+	this.addReferralCode = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				var referrerCode = crypto.randomBytes(3).toString('hex');
+				return User.update({
+					referrerCode: referrerCode
+				}, {
+					where: {
+						id: userId
+					}
+				}).then(function(updated) {
+					return resolve({
+						success: true
+					});
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+	this.getReferralCode = function(userId) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return coreapi.checkIfReferralCodeExists(userId).then(function(result) {
+					if (result.success == false) {
+						return coreapi.addReferralCode(userId).then(function(inserted) {
+							if (inserted.success) {
+								return User.findOne({
+									where: {
+										id: userId
+									}
+								}).then(function(userData) {
+									var referralLink = "https://platform.hurify.co/register/" + userData.referrerCode
+									var to = userData.email;
+									var bcc = "ico@hurify.co";
+									var subject = "Referral code";
+									var body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: center;line-height: 40px;">Thank you for signing up!<span style="display: block;">Please share the following link to refer Hurify Platform to your friends and family.</span></div><div style="padding: 10px 0 50px 0;text-align: center;"><a href="' + url + '" style="background: #2f6668;color: #fff;padding: 12px 30px;text-decoration: none;border-radius:3px;letter-spacing: 0.3px;">' +referralLink+ '</a></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+									var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+									return coreapi.sendMail({
+										"from": config.name_and_email_3,
+										"to": to,
+										"bcc": bcc,
+										"subject": subject,
+										"body": body,
+										"attachments" : attachments
+									}).then(function(success) {
+										return resolve({
+											"userData": userData,
+											"message": "Successfully generated the referral code."
+										});
+									}).catch(function(err) {
+										console.log("err: ", err);
+										return reject(err);
+									});
+								}).catch(function(err) {
+									console.log("err1: ", err);
+									return reject(err);
+								});
+							} else {
+								console.log("err2: ", err);
+								return reject("Failed to add referral code.")
+							}
+						}).catch(function(err) {
+							console.log("err3: ", err);
+							return reject(err);
+						})
+					} else {
+						return User.findOne({
+							where: {
+								id: userId
+							}
+						}).then(function(userData) {
+							return resolve({
+								"userData": userData
+							});
+						}).catch(function(err) {
+							console.log("err4: ", err);
+							return reject(err);
+						});
+					}
+				})
+			} catch (err) {
+				console.log("err5: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+	this.checkIfAirDropDataExists = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Airdrop = orm.model("Airdrop");
+				return Airdrop.findOne({
+					where: {
+						userId: userId
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve({
+							success: true
+						})
+					} else {
+						return resolve({
+							success: false
+						})
+					}
+				}).catch(function(err) {
+					console.log("err4 ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("err5 ", err);
+				return reject(err);
+			}
+		});
+	}
+	this.addAirDropData = function(data) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var userId = data.userId;
+				var Airdrop = orm.model("Airdrop");
+				var User = orm.model("User");
+				var Profile = "";
+				return Airdrop.create(data, {
+					validate: true
+				}).then(function(created) {
+					// return resolve("Data saved successfully.");
+					return User.findOne({
+						where: {
+							id: userId
+						}
+					}).then(function(result) {
+						console.log("Result: ", result);
+						if (result.userAccountType == 'client') {
+							Profile = orm.model("Client");
+						} else if (result.userAccountType == 'developer') {
+							Profile = orm.model("Developer");
+						}
+						return Profile.findOne({
+							where: {
+								userId: userId
+							}
+						}).then(function(profile) {
+							var name = profile.name;
+							var from = config.name_and_email_2;
+							var to = result.email;
+							var bcc = "ico@hurify.co";
+							var subject = "Hurify Airdrop";
+							var body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: left;line-height: 40px;">Hi ' + name + ',<br> Your Airdrop wallet address:<br> ' + data.walletAddress + '<br> has been recorded. We shall be deploying 100 stakes as a reward. Thank you for your interest in Hurify Platform.</div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+							var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+							return coreapi.sendMail({
+								"from": from,
+								"to": to,
+								"bcc": bcc,
+								"subject": subject,
+								"body": body,
+								"attachments" : attachments
+							}).then(function(success) {
+								return resolve("Your details has been saved. Also, we have sent you details in mail.");
+							}).catch(function(err) {
+								console.log("Err1: ", err);
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("Err2: ", err);
+							return reject(err);
+						});
+					}).catch(function(err) {
+						console.log("Err3: ", err);
+						return reject(err);
+					})
+				}).catch(function(err) {
+					console.log("Err4: ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err5: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+	this.getAirDropData = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var Airdrop = orm.model("Airdrop");
+				return Airdrop.findOne({
+					where: {
+						userId: userId
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+
+	this.addUserQuery = function (queryData) {
+				  var coreapi = this;
+				  return new Promise(function(resolve, reject) {
+				    try {
+							console.log("check1: ");
+				      var UserQuery = orm.model("UserQuery");
+				      return UserQuery.findOne({
+				        where : {
+				          email : queryData.email,
+				          subject : queryData.subject,
+				          query : queryData.query
+				        }
+				      }).then(function(result) {
+								console.log("check2: ");
+				        if (result) {
+				          return reject("Query/Issue already submitted");
+				        } else {
+									console.log("check3: ");
+				          return UserQuery.create(queryData).then(function(inserted) {
+										console.log("check4: ");
+				            var fromAddress = config.name_and_email;
+				            var toAddress = "support@hurify.co";
+				            var bccAddress = "ico@hurify.co";
+				            var sub = queryData.subject;
+				            var query = '<body> From: ' + queryData.email+ '<br><br> Query: ' +queryData.query+ '</body>'
+
+										var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+				            return coreapi.sendMail({
+				              "from" : fromAddress,
+				              "to": toAddress,
+				              "bcc" : bccAddress,
+				              "subject": sub,
+				              "body": query,
+											"attachments" : attachments
+				            }).then(function(success) {
+											console.log("check5: ");
+				              var from = "support@hurify.co";
+				              var to = queryData.email;
+											var bcc = "";
+				              var subject = "Query/Issue";
+											let body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: center;line-height: 40px;">Dear User, <br> Thank you for writing to us. We have received your query/issue, and we shall get back to you soon.</div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+											var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+				              return coreapi.sendMail({
+				                "from" : from,
+				                "to": to,
+				                "bcc" : bccAddress,
+				                "subject": subject,
+				                "body": body,
+												"attachments" : attachments
+				              }).then(function(success) {
+												console.log("check6: ");
+				                return resolve("Successfully submitted Query/Issue");
+				              }).catch(function(err) {
+				                console.log("Err1: ", err);
+				                return reject(err);
+				              });
+				            }).catch(function(err) {
+				              console.log("Err2: ", err);
+				              return reject(err);
+				            });
+				          }).catch(function(err) {
+				            console.log("Err3: ", err);
+				            return reject(err);
+				          })
+				        }
+				      }).catch(function(err) {
+				        console.log("Err4: ", err);
+				        return reject(err);
+				      })
+				    } catch (err) {
+				      console.log("Err5: ", err);
+				      return reject(err);
+				    }
+				  })
+				}
+
+
+	this.checkIfTokenSaleWhiteListDataExists = function(email) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSaleWhiteList = orm.model("TokenSaleWhiteList");
+				TokenSaleWhiteList.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve({
+							success: true
+						});
+					} else {
+						return resolve({
+							success: false
+						});
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.addTokenSaleWhiteListData = function(tokenSaleWhiteListData) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				var email = tokenSaleWhiteListData.email;
+				var TokenSaleWhiteList = orm.model("TokenSaleWhiteList");
+				return coreapi.checkIfTokenSaleWhiteListDataExists(email).then(function(checked) {
+					console.log("Success: ", checked);
+					if (checked.success) {
+						return reject("Data with this email already exists.");
+					} else {
+						console.log("check1: ");
+						return TokenSaleWhiteList.create(tokenSaleWhiteListData).then(function(created) {
+							var from = config.name_and_email_2;
+							var to = email;
+							var bcc = "ico@hurify.co";
+							var subject = "Token sale white list";
+							let body = '<div style = "text-align:center;"><span><a href="https://platform.hurify.co"><img src="cid:image1" style = "margin-left:auto;margin-right:auto;" width="10%"></a></span></div><div style="align:middle;padding: 30px;font-size: 24px;text-align: left;line-height: 40px;">Dear User, <br> Your data has been recorded. <br> We thank you for your interest in the Hurify Platform and TokenSale.<br>You can initiate your purchase once the TokenSale is live, stay tuned for an announcement for the same.</div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help?  <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify</a> Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+							var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+							console.log("check2: ");
+							return coreapi.sendMail({
+								"from": from,
+								"to": to,
+								"bcc": bcc,
+								"subject": subject,
+								"body": body,
+								"attachments" : attachments
+							}).then(function(success) {
+								console.log("check3: ");
+								return resolve("Your details has been saved successfully");
+							}).catch(function(err) {
+								console.log("Err1: ", err);
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("Err2: ", err);
+							return reject(err);
+						});
+					}
+				}).catch(function(err) {
+					console.log("Err3: ", err);
+					return reject(err);
+				});
+			} catch (err) {
+				console.log("Err4: ", err);
+				return reject(err);
+			}
+		});
+	}
+
+	this.getTokenSaleWhiteListData = function(tokenSaleWhiteListData) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var email = tokenSaleWhiteListData.email;
+				var TokenSaleWhiteList = orm.model("TokenSaleWhiteList");
+				TokenSaleWhiteList.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					return resolve(result);
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+
+	this.getUserDetails = function(userId) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var User = orm.model("User");
+				return User.findOne({
+					where: {
+						id: userId
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve(result);
+					} else {
+						return reject("User doesn't exists.")
+					}
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.checkIfTokenSaleDataExists = function(email) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					if (result) {
+						return resolve({
+							success: true
+						});
+					} else {
+						return resolve({
+							success: false
+						});
+					}
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.getTokenCurrencyAndWalletAddress = function(email) {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						email: email
+					}
+				}).then(function(result) {
+					var walletAddress = '';
+					if (result.currency == 'BTC') {
+						walletAddress = "1FL35xbb4uDB9vU2yr6FsJxZeJVf5K9faE";
+					} else if (result.currency == 'ETH') {
+						walletAddress = "0xa1Cf400C056CF6D58c5efaD53E70919aFb95b466";
+					} else if (result.currency == 'LTC') {
+						walletAddress = "LL7h7DndiAaXdAHcc2wRbyaFWJpKcMbdht";
+					} else if (result.currency == 'DASH') {
+						walletAddress = "XmnJmamBBWhBR2E2vD8SPpPxvkwb6pRX3i";
+					} else if (result.currency == 'BCH') {
+						walletAddress = "1LgqU2PzAsbNZJ9j5zjrxs1Mxd8JcjGRCX";
+					} else if (result.currency == 'BTG') {
+						walletAddress = "3LCdYFYas3RpTQTiToiQQ8mxheFZ9ttygy";
+					}
+					return resolve({
+						currency: result.currency,
+						walletAddress: walletAddress
+					});
+				}).catch(function(err) {
+					return reject(err);
+				})
+			} catch (err) {
+				return reject(err);
+			}
+		})
+	}
+
+	this.getTokensaleUsers = function() {
+		return new Promise(function(resolve, reject) {
+			try {
+				var TokenSale = orm.model("TokenSale");
+				var User = orm.model("User");
+				return User.findAll({
+					where: {
+						tokenSaleStatus : 2
+					}
+				}).then(function(users) {
+					var usersObj = {};
+					for (var i = 0; i < users.length; i++) {
+						let user = users[i];
+						usersObj[user.email] = user;
+					}
+					console.log(usersObj);
+					return TokenSale.findAndCountAll({
+						where: {
+							isMailSent : 0
+						}
+					}).then(function(result) {
+						var finalArray = [];
+						var results = result.rows;
+						for (var i = 0; i < results.length; i++) {
+							let customer = results[i];
+							if (customer.email in usersObj) {
+								finalArray.push(customer);
+							}
+						}
+						return resolve({count : finalArray.length, rows : finalArray});
+					}).catch(function(err) {
+						return reject(err);
+					});
+				}).catch(function(err) {
+					return reject(err);
+				});
+			} catch (err) {
+				return reject(err);
+			}
+		});
+	}
+
+	this.updateTokenSaleDataWithNoOfTokens = function(data) {
+		var coreapi = this;
+		return new Promise(function(resolve, reject) {
+			try {
+				console.log("Data: ", data);
+				var customerId = data.customerId;
+				var noOfTokens = data.noOfTokens;
+				var HURTransactionHash = data.HURTransactionHash;
+				var TokenSale = orm.model("TokenSale");
+				return TokenSale.findOne({
+					where: {
+						id : customerId
+					}
+				}).then(function(customer) {
+					if (customer) {
+						var to = customer.email;
+						var bcc = "ico@hurify.co";
+						var subject = "Hurify Tokens Delivered to your ETH Wallet";
+						var bcc = "ico@hurify.co";
+						var body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" width="100px"></a></div><div><br><br>Hi ' +customer.firstName+ ',<br><br>Hope you are doing good. Thanks for your Hurify Token purchase.<br><br>' +noOfTokens+ ' HUR Tokens have been sent to your ETH Wallet.<br><br>The confirmation is available on Ethereum Blockchain\'s here:<br>https://ethplorer.io/address/' +customer.walletAddress+ '<br><br>To Add HUR Tokens in your MyEtherWallet: Visit MEW (www.myetherwallet.com) and go to the “View Wallet Info” page:<br> Step:1 Click “Add Custom Token” <br>Step:2 Enter the contract address (0xCDB7eCFd3403Eef3882c65B761ef9B5054890a47) and number of decimals (18) Add the token symbol (HUR)<br> Step:3 Click “Save”.<br><br>To Add HUR Tokens in your In MetaMask:<br> Step:1 Go to you MeteMask wallet and select "Tokens" Tab <br>Step:2 Click "Add Token" <br>Step:3 Enter the contract address (0xCDB7eCFd3403Eef3882c65B761ef9B5054890a47) and number of decimals (18) Add the token symbol (HUR) <br>Step:4 Click “Save”.<br><br>Shoot me a mail back for any questions.<br><br>All the Best!!!<br><br><br><br>Cheers!<br>Tim Galvin,<br>Program Management Officer@Hurify Inc<br><br><div style = "text-align:center;"><span><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div></div>';
+
+						var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+						return coreapi.sendMail({
+							"from": config.name_and_email_2,
+							"to": to,
+							"bcc": bcc,
+							"subject": subject,
+							"body": body,
+							"attachments" : attachments
+						}).then(function(success) {
+							customer['isMailSent'] = 1;
+							customer['noOfTokens'] = noOfTokens;
+							customer['HURTransactionHash'] = HURTransactionHash;
+							return customer.save().then(function(success) {
+								return resolve("Successfully sent mail!!");
+							}).catch(function(err) {
+								return reject(err);
+							});
+						}).catch(function(err) {
+							console.log("Err: ", err);
+							return reject(err);
+						});
+					} else {
+						return reject("Customer Not Found!");
+					}
+				}).catch(function(err) {
+					console.log(err)
+					return reject(err);
+				});
+			} catch (err) {
+				console.log(err)
+				return reject(err)
+			}
+		})
+	}
+
+	this.getAllUnsolvedUserQueries = function() {
+					return new Promise(function(resolve, reject) {
+						try {
+							var UserQuery = orm.model("UserQuery");
+							return UserQuery.findAll({
+								where : {
+									status : 0
+								}
+							}).then(function(result) {
+								if (result) {
+									console.log("Result: ", result);
+									return resolve(result);
+							  } else {
+									return resolve ("No Data");
+								}
+							}).catch(function(err) {
+								return reject(err);
+							});
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+
+				this.getUserQueryById = function(queryId) {
+					return new Promise (function (resolve, reject) {
+						try {
+							var UserQuery = orm.model("UserQuery");
+							return UserQuery.findOne({
+								where : {
+									id : queryId
+								}
+							}).then(function (result) {
+								return resolve (result);
+							}).catch(function (err) {
+								return reject (err);
+							});
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+				this.sendResolutionForUserQuery = function(queryData) {
+					var coreapi = this;
+					return new Promise( function( resolve , reject) {
+						try {
+							var UserQuery = orm.model("UserQuery");
+							var queryId = queryData.queryId;
+							var email = queryData.email;
+							return UserQuery.update({resolution : queryData.resolution, status : 1}, {
+								where : {
+									id : queryId
+								}
+							}).then(function (updated) {
+								var from = "support@hurify.co";
+								var to = email;
+								var bcc = "ico@hurify.co";
+								var subject = "Resolution for - " + queryData.subject;
+								let body = '<div style = "text-align:center;"><a href="https://platform.hurify.co"><img src="cid:image1" style = "display:block;margin-left:auto;margin-right:auto;" width="100px"></a></div><div style="align:middle;padding: 30px 0;font-size: 24px;text-align: center;line-height: 40px;">Dear User, <br> ' +queryData.resolution+ '</div><div style="padding: 10px 0 50px 0;text-align: center;"></div><div style="margin:auto;width:30%;padding:15px;background: #eee;border-radius: 3px;text-align:center;">Need help? <a href="mailto:contact@hurify.co" style="color: #3ba1da;text-decoration: none;"> contact us </a> today.</div><div style="color: #999;padding: 20px 30px"><div style="text-align:center">Thank you!</div><div style="text-align:center">The <a href="http://platform.hurify.co" style="color: #3ba1da;text-decoration: none;"> Hurify </a>Team</div></div><div style = "text-align:center;"><span style="position:relative"><a href="https://www.facebook.com/hurify"><img src="cid:image2" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://github.com/HurifyPlatform/"><img src="cid:image3" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.linkedin.com/company/11281157/"><img src="cid:image4" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://medium.com/@Hurify"><img src="cid:image5" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://www.reddit.com/user/Hurify/"><img src="cid:image6" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://hurify.slack.com/"><img src="cid:image7" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://t.me/joinchat/Fyj94Q74NiSm26mxBJxLog"><img src="cid:image8" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image9" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://google.com"><img src="cid:image10" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="position:relative"><a href="https://bitcointalk.org/index.php?action=profile;u=1244776"><img src="cid:image11" style ="border-radius:50%;background-color:#9cc1fc;border-color:#9cc1fc" width=50px ></a></span></div>';
+
+								var attachments = [{ filename : "HURFIY1.png", path : "http://localhost:1800/img/HURFIY1.png", cid : "image1"}, { filename : "facebook.png", path : "http://localhost:1800/img/facebook.png", cid : "image2"}, { filename : "github.png", path : "http://localhost:1800/img/github.png", cid : "image3"}, { filename : "linkdin.png", path : "http://localhost:1800/img/linkdin.png", cid : "image4"}, { filename : "medium.png", path : "http://localhost:1800/img/medium.png", cid : "image5"}, { filename : "reddit.png", path : "http://localhost:1800/img/reddit.png", cid : "image6"}, { filename : "slack.png", path : "http://localhost:1800/img/slack.png", cid : "image7"}, { filename : "telegram.png", path : "http://localhost:1800/img/telegram.png", cid : "image8"}, { filename : "twitter.png", path : "http://localhost:1800/img/twitter.png", cid : "image9"}, { filename : "youtube.png", path : "http://localhost:1800/img/youtube.png", cid : "image10"},{ filename : "bitcointalk.png", path : "http://localhost:1800/img/bitcointalk.png", cid : "image11"}];
+
+								return coreapi.sendMail({
+									"from" : from,
+									"to": to,
+									"bcc" : bcc,
+									"subject": subject,
+									"body": body,
+									"attachments" : attachments
+								}).then(function(success) {
+									return resolve ("Resolution successfully sent to user.");
+								}).catch(function(err) {
+									console.log("Err1: ", err);
+									return reject(err);
+								});
+							}).catch(function(err) {
+								console.log("Err2: ", err);
+								return reject (err);
+							})
+						} catch (err) {
+							console.log("Err3",err);
+							return reject (err);
+						}
+					})
+				}
+
+				this.checkIfTelegramBountyDataExists = function(email) {
+					return new Promise(function(resolve, reject) {
+						try {
+							var TelegramBounty = orm.model("TelegramBounty");
+							return TelegramBounty.findOne({
+								where : {
+									email : email
+								}
+							}).then(function(TelegramData) {
+								if (TelegramData) {
+									return resolve({ success : true });
+								} else {
+									return resolve({ success : false });
+								}
+							}).catch(function(err) {
+								return reject(err);
+							})
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+				this.addTelegramBountyData = function(TelegramData) {
+					var coreapi = this;
+					return new Promise(function(resolve, reject) {
+						try {
+							var email = TelegramData.email;
+							var TelegramBounty = orm.model("TelegramBounty");
+							this.checkIfTelegramBountyDataExists(email).then(function(result) {
+								if (result.success) {
+									return reject("Already submitted the bounty data")
+								} else {
+									return TelegramBounty.create(TelegramData).then(function(success) {
+									  return resolve("Thank you. Your data has been submitted successfully");
+									}).catch(function(err) {
+									  return reject(err);
+									})
+								}
+							}).catch(function(err) {
+								return reject(err);
+							})
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+				this.getTelegramBountyDataByEmail = function(TelegramData) {
+					return new Promise(function(resolve, reject) {
+						try {
+							var TelegramBounty = orm.model("TelegramBounty");
+							return TelegramBounty.findOne({
+								where : {
+									email : email
+								}
+							}).then(function(result) {
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							})
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+				this.getAllTelegramBountyData = function(TelegramData) {
+					return new Promise(function(resolve, reject) {
+						try {
+							var TelegramBounty = orm.model("TelegramBounty");
+							return TelegramBounty.findAll().then(function(result) {
+								return resolve(result);
+							}).catch(function(err) {
+								return reject(err);
+							})
+						} catch (err) {
+							return reject(err);
+						}
+					})
+				}
+
+
+}
+
+CoreAPI.instance = null;
+
+CoreAPI.getInstance = function() {
+	if (this.instance === null) {
+		this.instance = new CoreAPI();
+	}
+	return this.instance;
+}
+
+module.exports = CoreAPI.getInstance();
